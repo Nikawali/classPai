@@ -1,0 +1,42 @@
+server:
+  port: 8080
+
+spring:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/ecommercesystem?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: qwertYUIOP200512
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 16  #?????
+      minimum-idle: 2  #???????
+      idle-timeout: 30000  #30s???? ??????
+      max-lifetime: 600000  #?????? ??????
+      connection-timeout: 30000  #?????? ????
+
+# MyBatis ??
+mybatis:
+  mapper-locations: classpath:mapper/*.xml   # ??????
+  type-aliases-package: org.example.entity #??xml???????
+  configuration:
+    map-underscore-to-camel-case: true       # ?????????????
+#    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # ?? SQL ??????
+
+# ??
+logging:
+  level:
+    org.example.mapper: debug
+
+  # Redis ??
+redis:
+  host: localhost     # Redis ???????127.0.0.1?
+  port: 6379          # ????
+  password:           # ?? Redis ???????
+  database: 0         # ?????
+  timeout: 2000ms
