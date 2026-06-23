@@ -4,10 +4,16 @@ import lombok.Data;
 
 @Data
 public class RegisterDTO {
-    private String username;
+    /** 学号/工号（纯数字） */
+    private Long userId;
+    /** 真实姓名 */
+    private String userName;
+    private String phone;
     private String password;
-    /** TEACHER / STUDENT */
-    private String role;
-    private String name;
-    private String email;
+    private String gender;
+    private String role;        // TEACHER / STUDENT
+    private String school;      // 学校（仅学生填）
+    private String college;     // 学院（仅学生填）
+    private String major;       // 专业（仅学生填）
+    private String code;        // 验证码
 }

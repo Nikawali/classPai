@@ -18,6 +18,11 @@ public class UserController {
         this.userService = userService;
     }
 
+    @GetMapping("/send-code")
+    public Result<?> sendCode(@RequestParam String phone) {
+        return userService.sendCode(phone);
+    }
+
     @PostMapping("/register")
     public Result<?> register(@RequestBody RegisterDTO dto) {
         return userService.register(dto);

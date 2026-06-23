@@ -22,7 +22,6 @@ public class HomeworkController {
         this.homeworkService = homeworkService;
     }
 
-    /** 教师布置作业 */
     @PostMapping("/course/{courseId}")
     public Result<Homework> create(@PathVariable Long courseId,
                                    @RequestBody HomeworkDTO dto,
@@ -31,7 +30,6 @@ public class HomeworkController {
         return homeworkService.createHomework(courseId, dto, user);
     }
 
-    /** 查看课程作业列表 */
     @GetMapping("/course/{courseId}")
     public PageResult<Homework> list(@PathVariable Long courseId,
                                       @RequestParam(defaultValue = "1") int page,
@@ -39,31 +37,28 @@ public class HomeworkController {
         return homeworkService.listHomework(courseId, page, pageSize);
     }
 
-    /** 学生提交作业 */
-    @PostMapping("/{homeworkId}/submit")
-    public Result<Submission> submit(@PathVariable Long homeworkId,
+    @PostMapping("/{hwId}/submit")
+    public Result<Submission> submit(@PathVariable Long hwId,
                                       @RequestBody SubmissionDTO dto,
                                       HttpSession session) {
         User user = (User) session.getAttribute("user");
-        return homeworkService.submit(homeworkId, dto, user);
+        return homeworkService.submit(hwId, dto, user);
     }
 
-    /** 教师查看某作业的所有提交 */
-    @GetMapping("/{homeworkId}/submissions")
-    public PageResult<Submission> submissions(@PathVariable Long homeworkId,
+    @GetMapping("/{hwId}/submissions")
+    public PageResult<Submission> submissions(@PathVariable Long hwId,
                                                HttpSession session,
                                                @RequestParam(defaultValue = "1") int page,
                                                @RequestParam(defaultValue = "10") int pageSize) {
         User user = (User) session.getAttribute("user");
-        return homeworkService.listSubmissions(homeworkId, user, page, pageSize);
+        return homeworkService.listSubmissions(hwId, user, page, pageSize);
     }
 
-    /** 教师批改评分 */
-    @PutMapping("/submission/{submissionId}/grade")
-    public Result<?> grade(@PathVariable Long submissionId,
+    @PutMapping("/submission/{submitId}/grade")
+    public Result<?> grade(@PathVariable Long submitId,
                            @RequestBody GradeDTO dto,
                            HttpSession session) {
         User user = (User) session.getAttribute("user");
-        return homeworkService.grade(submissionId, dto, user);
+        return homeworkService.grade(submitId, dto, user);
     }
 }
