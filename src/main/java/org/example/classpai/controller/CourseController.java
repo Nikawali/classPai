@@ -19,14 +19,14 @@ public class CourseController {
         this.courseService = courseService;
     }
 
-    /** 教师创建课程 */
+    /** 创建课程 */
     @PostMapping
     public Result<Course> create(@RequestBody CourseDTO dto, HttpSession session) {
         User user = (User) session.getAttribute("user");
         return courseService.createCourse(dto, user);
     }
 
-    /** 教师查看自己的课程 */
+    /** 我的课程（教师） */
     @GetMapping("/my")
     public PageResult<Course> myCourses(HttpSession session,
                                          @RequestParam(defaultValue = "1") int page,
@@ -35,14 +35,14 @@ public class CourseController {
         return courseService.listMyCourses(user, page, pageSize);
     }
 
-    /** 学生通过课程码加入课程 */
+    /** 加入课程（学生） */
     @PostMapping("/join")
     public Result<?> join(@RequestParam String courseCode, HttpSession session) {
         User user = (User) session.getAttribute("user");
         return courseService.joinCourse(courseCode, user);
     }
 
-    /** 学生查看已选课程 */
+    /** 已加入的课程（学生） */
     @GetMapping("/joined")
     public PageResult<Course> joinedCourses(HttpSession session,
                                              @RequestParam(defaultValue = "1") int page,
@@ -51,7 +51,7 @@ public class CourseController {
         return courseService.listJoinedCourses(user, page, pageSize);
     }
 
-    /** 获取课程详情 */
+    /** 课程详情 */
     @GetMapping("/{courseId}")
     public Result<Course> detail(@PathVariable Long courseId, HttpSession session) {
         User user = (User) session.getAttribute("user");

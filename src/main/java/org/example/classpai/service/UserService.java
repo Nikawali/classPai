@@ -7,6 +7,9 @@ import org.example.classpai.entity.User;
 
 public interface UserService {
 
+    /** 发送验证码 */
+    Result<?> sendCode(String phone);
+
     Result<?> register(RegisterDTO dto);
 
     Result<User> login(LoginDTO dto, jakarta.servlet.http.HttpSession session);

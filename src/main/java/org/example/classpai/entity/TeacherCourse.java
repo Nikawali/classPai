@@ -3,21 +3,22 @@ package org.example.classpai.entity;
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("course_student")
-public class UserCourse {
+@TableName("teacher_course")
+public class TeacherCourse {
     @TableId(type = IdType.AUTO)
-    private Long csId;
+    private Long tcId;
 
-    private Long studentId;
+    /** FK → user.user_id */
+    private Long teacherUserId;
 
+    /** FK → course.course_id */
     private Long courseId;
 
-    private BigDecimal score;
+    private Integer roleInCourse;
 
     @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime selectTime;
+    private LocalDateTime bindTime;
 }

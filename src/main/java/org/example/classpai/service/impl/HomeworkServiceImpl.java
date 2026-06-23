@@ -8,13 +8,8 @@ import org.example.classpai.common.exception.BusinessException;
 import org.example.classpai.dto.GradeDTO;
 import org.example.classpai.dto.HomeworkDTO;
 import org.example.classpai.dto.SubmissionDTO;
-import org.example.classpai.entity.Course;
-import org.example.classpai.entity.Homework;
-import org.example.classpai.entity.Submission;
-import org.example.classpai.entity.User;
-import org.example.classpai.mapper.CourseMapper;
-import org.example.classpai.mapper.HomeworkMapper;
-import org.example.classpai.mapper.SubmissionMapper;
+import org.example.classpai.entity.*;
+import org.example.classpai.mapper.*;
 import org.example.classpai.service.HomeworkService;
 import org.springframework.stereotype.Service;
 
@@ -24,107 +19,101 @@ public class HomeworkServiceImpl implements HomeworkService {
     private final HomeworkMapper homeworkMapper;
     private final SubmissionMapper submissionMapper;
     private final CourseMapper courseMapper;
+    private final TeacherCourseMapper teacherCourseMapper;
 
     public HomeworkServiceImpl(HomeworkMapper homeworkMapper,
                                SubmissionMapper submissionMapper,
-                               CourseMapper courseMapper) {
+                               CourseMapper courseMapper,
+                               TeacherCourseMapper teacherCourseMapper) {
         this.homeworkMapper = homeworkMapper;
         this.submissionMapper = submissionMapper;
         this.courseMapper = courseMapper;
+        this.teacherCourseMapper = teacherCourseMapper;
+    }
+
+    /** 校验用户是否该课程教师 */
+    private void checkTeacher(Long courseId, Long userId) {
+        LambdaQueryWrapper<TeacherCourse> w = new LambdaQueryWrapper<>();
+        w.eq(TeacherCourse::getCourseId, courseId)
+         .eq(TeacherCourse::getTeacherUserId, userId);
+        if (teacherCourseMapper.selectCount(w) == 0) {
+            throw new BusinessException(403, "无权操作");
+        }
     }
 
     @Override
-    public Result<Homework> createHomework(Long courseId, HomeworkDTO dto, User teacher) {
-        Course course = courseMapper.selectById(courseId);
-        if (course == null) {
-            throw new BusinessException(404, "课程不存在");
-        }
-        if (!course.getTeacherId().equals(teacher.getId())) {
-            throw new BusinessException(403, "无权操作该课程");
-        }
+    public Result<Homework> createHomework(Long courseId, HomeworkDTO dto, User user) {
+        checkTeacher(courseId, user.getUserId());
 
-        Homework homework = new Homework();
-        homework.setCourseId(courseId);
-        homework.setTitle(dto.getTitle());
-        homework.setDescription(dto.getDescription());
-        homework.setDueDate(dto.getDueDate());
-        homeworkMapper.insert(homework);
-        return Result.success(homework);
+        Homework hw = new Homework();
+        hw.setCourseId(courseId);
+        hw.setTitle(dto.getTitle());
+        hw.setContent(dto.getContent());
+        hw.setDeadline(dto.getDeadline());
+        homeworkMapper.insert(hw);
+        return Result.success(hw);
     }
 
     @Override
     public PageResult<Homework> listHomework(Long courseId, int page, int pageSize) {
-        LambdaQueryWrapper<Homework> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Homework::getCourseId, courseId)
-               .orderByDesc(Homework::getCreateTime);
-        Page<Homework> p = homeworkMapper.selectPage(new Page<>(page, pageSize), wrapper);
+        LambdaQueryWrapper<Homework> w = new LambdaQueryWrapper<>();
+        w.eq(Homework::getCourseId, courseId)
+         .orderByDesc(Homework::getCreateTime);
+        Page<Homework> p = homeworkMapper.selectPage(new Page<>(page, pageSize), w);
         return PageResult.of(p.getTotal(), p.getRecords(), p.getCurrent(), p.getSize());
     }
 
     @Override
-    public Result<Submission> submit(Long homeworkId, SubmissionDTO dto, User student) {
-        Homework homework = homeworkMapper.selectById(homeworkId);
-        if (homework == null) {
+    public Result<Submission> submit(Long hwId, SubmissionDTO dto, User user) {
+        Homework hw = homeworkMapper.selectById(hwId);
+        if (hw == null) {
             throw new BusinessException(404, "作业不存在");
         }
 
-        // 查重：同一学生对同一作业只能提交一次（可替换内容）
-        LambdaQueryWrapper<Submission> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Submission::getHomeworkId, homeworkId)
-               .eq(Submission::getStudentId, student.getId());
-        Submission exist = submissionMapper.selectOne(wrapper);
-
+        // 查重：同学生对同作业只保留一份
+        LambdaQueryWrapper<Submission> w = new LambdaQueryWrapper<>();
+        w.eq(Submission::getHwId, hwId)
+         .eq(Submission::getStudentId, user.getUserId());
+        Submission exist = submissionMapper.selectOne(w);
         if (exist != null) {
-            exist.setContent(dto.getContent());
-            exist.setFileUrl(dto.getFileUrl());
+            exist.setSubmitContent(dto.getContent());
             submissionMapper.updateById(exist);
             return Result.success(exist);
         }
 
-        Submission submission = new Submission();
-        submission.setHomeworkId(homeworkId);
-        submission.setStudentId(student.getId());
-        submission.setContent(dto.getContent());
-        submission.setFileUrl(dto.getFileUrl());
-        submissionMapper.insert(submission);
-        return Result.success(submission);
+        Submission sub = new Submission();
+        sub.setHwId(hwId);
+        sub.setStudentId(user.getUserId());
+        sub.setSubmitContent(dto.getContent());
+        submissionMapper.insert(sub);
+        return Result.success(sub);
     }
 
     @Override
-    public PageResult<Submission> listSubmissions(Long homeworkId, User teacher,
+    public PageResult<Submission> listSubmissions(Long hwId, User user,
                                                    int page, int pageSize) {
-        Homework homework = homeworkMapper.selectById(homeworkId);
-        if (homework == null) {
-            throw new BusinessException(404, "作业不存在");
-        }
-        Course course = courseMapper.selectById(homework.getCourseId());
-        if (!course.getTeacherId().equals(teacher.getId())) {
-            throw new BusinessException(403, "无权查看");
-        }
+        Homework hw = homeworkMapper.selectById(hwId);
+        if (hw == null) throw new BusinessException(404, "作业不存在");
+        checkTeacher(hw.getCourseId(), user.getUserId());
 
-        LambdaQueryWrapper<Submission> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Submission::getHomeworkId, homeworkId)
-               .orderByAsc(Submission::getSubmitTime);
-        Page<Submission> p = submissionMapper.selectPage(new Page<>(page, pageSize), wrapper);
+        LambdaQueryWrapper<Submission> w = new LambdaQueryWrapper<>();
+        w.eq(Submission::getHwId, hwId)
+         .orderByAsc(Submission::getSubmitTime);
+        Page<Submission> p = submissionMapper.selectPage(new Page<>(page, pageSize), w);
         return PageResult.of(p.getTotal(), p.getRecords(), p.getCurrent(), p.getSize());
     }
 
     @Override
-    public Result<?> grade(Long submissionId, GradeDTO dto, User teacher) {
-        Submission submission = submissionMapper.selectById(submissionId);
-        if (submission == null) {
-            throw new BusinessException(404, "提交记录不存在");
-        }
+    public Result<?> grade(Long submitId, GradeDTO dto, User user) {
+        Submission sub = submissionMapper.selectById(submitId);
+        if (sub == null) throw new BusinessException(404, "提交记录不存在");
 
-        Homework homework = homeworkMapper.selectById(submission.getHomeworkId());
-        Course course = courseMapper.selectById(homework.getCourseId());
-        if (!course.getTeacherId().equals(teacher.getId())) {
-            throw new BusinessException(403, "无权评分");
-        }
+        Homework hw = homeworkMapper.selectById(sub.getHwId());
+        checkTeacher(hw.getCourseId(), user.getUserId());
 
-        submission.setScore(dto.getScore());
-        submission.setFeedback(dto.getFeedback());
-        submissionMapper.updateById(submission);
+        sub.setScore(dto.getScore());
+        sub.setComment(dto.getFeedback());
+        submissionMapper.updateById(sub);
         return Result.success("评分成功");
     }
 }

@@ -9,17 +9,15 @@ import java.time.LocalDateTime;
 @TableName("homework")
 public class Homework {
     @TableId(type = IdType.AUTO)
-    private Long id;
+    private Long hwId;
 
-    /** 所属课程ID */
     private Long courseId;
 
     private String title;
 
-    private String description;
+    private String content;
 
-    /** 截止时间 */
-    private LocalDateTime dueDate;
+    private LocalDateTime deadline;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
