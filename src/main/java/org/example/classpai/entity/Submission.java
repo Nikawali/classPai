@@ -3,31 +3,24 @@ package org.example.classpai.entity;
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("submission")
+@TableName("homework_submit")
 public class Submission {
     @TableId(type = IdType.AUTO)
-    private Long id;
+    private Long submitId;
 
-    /** 作业ID */
-    private Long homeworkId;
+    private Long hwId;
 
-    /** 提交学生ID */
     private Long studentId;
 
-    /** 作业内容 */
-    private String content;
+    private String submitContent;
 
-    /** 附件URL */
-    private String fileUrl;
-
-    /** 教师评分 */
     private Integer score;
 
-    /** 教师评语 */
-    private String feedback;
+    private String comment;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime submitTime;
