@@ -65,18 +65,38 @@ public class AuthServiceImpl implements AuthService {
         // ---------- 5. 清除失败记录，生成 Token ----------
         rateLimiter.clear(account);
 
-        LoginResponse userInfo = new LoginResponse(
-                null,
-                user.getUserId(),
-                user.getUserName(),
-                user.getRole()
-        );
+        LoginResponse userInfo = new LoginResponse();
+        userInfo.setUserId(user.getUserId());
+        userInfo.setUserName(user.getUserName());
+        userInfo.setRole(user.getRole());
 
         String token = tokenService.generateToken(userInfo);
         userInfo.setToken(token);
 
         log.info("用户 {} (userId={}) 登录成功", user.getUserName(), user.getUserId());
         return userInfo;
+    }
+
+    @Override
+    public LoginResponse getProfile(String token) {
+        LoginResponse tokenInfo = tokenService.validateToken(token);
+        if (tokenInfo == null) {
+            throw new BusinessException(401, "未登录或Token已过期");
+        }
+        User user = userMapper.selectById(tokenInfo.getUserId());
+        if (user == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+        LoginResponse profile = new LoginResponse();
+        profile.setUserId(user.getUserId());
+        profile.setUserName(user.getUserName());
+        profile.setRole(user.getRole());
+        profile.setPhone(user.getPhone());
+        profile.setCreateTime(user.getCreateTime());
+        profile.setSchool(user.getSchool());
+        profile.setCollege(user.getCollege());
+        profile.setMajor(user.getMajor());
+        return profile;
     }
 
     /** 按手机号或 userId 查询用户 */

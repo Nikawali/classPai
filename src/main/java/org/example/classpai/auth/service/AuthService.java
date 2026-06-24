@@ -12,4 +12,11 @@ public interface AuthService {
      * @return 登录结果（含 Token）
      */
     LoginResponse login(LoginRequest request, String clientIp);
+
+    /**
+     * 获取当前登录用户信息
+     * @param token 认证 Token
+     * @return 用户详细信息
+     */
+    LoginResponse getProfile(String token);
 }

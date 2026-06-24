@@ -6,6 +6,8 @@ import org.example.classpai.auth.dto.LoginRequest;
 import org.example.classpai.auth.dto.LoginResponse;
 import org.example.classpai.auth.service.AuthService;
 import org.example.classpai.common.Result;
+import org.example.classpai.common.exception.BusinessException;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,10 +27,31 @@ public class AuthController {
 
     @PostMapping("/auth/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request,
-                                        HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest) {
         String clientIp = getClientIp(httpRequest);
         LoginResponse result = authService.login(request, clientIp);
         return Result.success(result);
+    }
+
+    /**
+     * 获取当前登录用户信息 — GET /auth/me
+     */
+    @GetMapping("/auth/me")
+    public Result<LoginResponse> getProfile(HttpServletRequest request) {
+        String token = extractToken(request);
+        LoginResponse profile = authService.getProfile(token);
+        return Result.success(profile);
+    }
+
+    /**
+     * 从 Authorization 请求头提取 Bearer Token
+     */
+    private String extractToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        throw new BusinessException(401, "未提供有效的认证Token");
     }
 
     /**
