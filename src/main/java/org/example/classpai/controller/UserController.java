@@ -1,8 +1,8 @@
 package org.example.classpai.controller;
 
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import org.example.classpai.auth.service.TokenService;
 import org.example.classpai.common.Result;
-import org.example.classpai.dto.LoginDTO;
 import org.example.classpai.dto.RegisterDTO;
 import org.example.classpai.entity.User;
 import org.example.classpai.service.UserService;
@@ -13,9 +13,11 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final TokenService tokenService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, TokenService tokenService) {
         this.userService = userService;
+        this.tokenService = tokenService;
     }
 
     @GetMapping("/send-code")
@@ -28,19 +30,17 @@ public class UserController {
         return userService.register(dto);
     }
 
-    @PostMapping("/login")
-    public Result<User> login(@RequestBody LoginDTO dto, HttpSession session) {
-        return userService.login(dto, session);
-    }
-
     @GetMapping("/current")
-    public Result<User> current(HttpSession session) {
-        return userService.getCurrentUser(session);
+    public Result<User> current(HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return Result.success(user);
     }
 
     @PostMapping("/logout")
-    public Result<?> logout(HttpSession session) {
-        session.invalidate();
+    public Result<?> logout(@RequestHeader("Authorization") String auth) {
+        if (auth != null && auth.startsWith("Bearer ")) {
+            tokenService.revokeToken(auth.substring(7));
+        }
         return Result.success("已退出");
     }
 }

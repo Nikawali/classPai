@@ -8,18 +8,18 @@ import org.example.classpai.entity.User;
 
 public interface CourseService {
 
-    /** 创建课程（教师绑定到 teacher_course 表） */
+    /** 创建课程（仅教师可用） */
     Result<Course> createCourse(CourseDTO dto, User user);
 
     /** 教师查看自己教的课程 */
     PageResult<Course> listMyCourses(User user, int page, int pageSize);
 
-    /** 学生通过课程码加入 */
+    /** 通过选课码加入课程（学生→course_student，教师→teacher_course） */
     Result<?> joinCourse(String courseCode, User user);
 
     /** 学生查看已加入的课程 */
     PageResult<Course> listJoinedCourses(User user, int page, int pageSize);
 
-    /** 获取课程详情 */
+    /** 获取课程详情（仅课程成员） */
     Result<Course> getCourseDetail(Long courseId, User user);
 }

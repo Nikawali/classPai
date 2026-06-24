@@ -7,14 +7,17 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("course_student")
+@TableName("user_course")
 public class UserCourse {
     @TableId(type = IdType.AUTO)
     private Long csId;
 
-    private Long studentId;
+    private Long userId;
 
     private Long courseId;
+
+    /** 在该课程中的角色：teacher / student */
+    private String role;
 
     private BigDecimal score;
 

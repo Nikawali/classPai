@@ -9,6 +9,7 @@ import org.example.classpai.dto.CourseDTO;
 import org.example.classpai.entity.*;
 import org.example.classpai.mapper.*;
 import org.example.classpai.service.CourseService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,14 +21,11 @@ import java.util.stream.Collectors;
 public class CourseServiceImpl implements CourseService {
 
     private final CourseMapper courseMapper;
-    private final TeacherCourseMapper teacherCourseMapper;
     private final UserCourseMapper userCourseMapper;
 
     public CourseServiceImpl(CourseMapper courseMapper,
-                             TeacherCourseMapper teacherCourseMapper,
                              UserCourseMapper userCourseMapper) {
         this.courseMapper = courseMapper;
-        this.teacherCourseMapper = teacherCourseMapper;
         this.userCourseMapper = userCourseMapper;
     }
 
@@ -35,30 +33,27 @@ public class CourseServiceImpl implements CourseService {
     @Transactional
     public Result<Course> createCourse(CourseDTO dto, User user) {
         Course course = new Course();
-        course.setCourseName(dto.getCourseName());
-        course.setCourseIntro(dto.getCourseIntro());
-        course.setStartDate(dto.getStartDate());
-        course.setEndDate(dto.getEndDate());
+        BeanUtils.copyProperties(dto, course);
         course.setCourseCode(generateCourseCode());
         courseMapper.insert(course);
 
-        // 创建者自动绑定为教师
-        TeacherCourse tc = new TeacherCourse();
-        tc.setTeacherUserId(user.getUserId());
-        tc.setCourseId(course.getCourseId());
-        tc.setRoleInCourse(1); // 1=主讲教师
-        teacherCourseMapper.insert(tc);
+        // 创建者默认为该课程教师
+        UserCourse uc = new UserCourse();
+        uc.setUserId(user.getUserId());
+        uc.setCourseId(course.getCourseId());
+        uc.setRole("teacher");
+        userCourseMapper.insert(uc);
 
         return Result.success(course);
     }
 
     @Override
     public PageResult<Course> listMyCourses(User user, int page, int pageSize) {
-        // 查 teacher_course 表中此用户教的课程
-        LambdaQueryWrapper<TeacherCourse> tcWrapper = new LambdaQueryWrapper<>();
-        tcWrapper.eq(TeacherCourse::getTeacherUserId, user.getUserId());
-        List<Long> courseIds = teacherCourseMapper.selectList(tcWrapper)
-                .stream().map(TeacherCourse::getCourseId).collect(Collectors.toList());
+        LambdaQueryWrapper<UserCourse> ucWrapper = new LambdaQueryWrapper<>();
+        ucWrapper.eq(UserCourse::getUserId, user.getUserId())
+                 .eq(UserCourse::getRole, "teacher");
+        List<Long> courseIds = userCourseMapper.selectList(ucWrapper)
+                .stream().map(UserCourse::getCourseId).collect(Collectors.toList());
 
         if (courseIds.isEmpty()) {
             return PageResult.of(0, List.of(), page, pageSize);
@@ -78,28 +73,32 @@ public class CourseServiceImpl implements CourseService {
         cw.eq(Course::getCourseCode, courseCode);
         Course course = courseMapper.selectOne(cw);
         if (course == null) {
-            throw new BusinessException(400, "课程码无效");
+            throw new BusinessException(400, "选课码无效");
         }
 
-        // 查重
+        // 检查是否已加入
         LambdaQueryWrapper<UserCourse> ucWrapper = new LambdaQueryWrapper<>();
-        ucWrapper.eq(UserCourse::getStudentId, user.getUserId())
+        ucWrapper.eq(UserCourse::getUserId, user.getUserId())
                  .eq(UserCourse::getCourseId, course.getCourseId());
         if (userCourseMapper.selectCount(ucWrapper) > 0) {
             throw new BusinessException(400, "已加入该课程");
         }
 
+        // 加入者默认为学生
         UserCourse uc = new UserCourse();
-        uc.setStudentId(user.getUserId());
+        uc.setUserId(user.getUserId());
         uc.setCourseId(course.getCourseId());
+        uc.setRole("student");
         userCourseMapper.insert(uc);
+
         return Result.success("加入成功");
     }
 
     @Override
     public PageResult<Course> listJoinedCourses(User user, int page, int pageSize) {
         LambdaQueryWrapper<UserCourse> ucWrapper = new LambdaQueryWrapper<>();
-        ucWrapper.eq(UserCourse::getStudentId, user.getUserId());
+        ucWrapper.eq(UserCourse::getUserId, user.getUserId())
+                 .eq(UserCourse::getRole, "student");
         List<Long> courseIds = userCourseMapper.selectList(ucWrapper)
                 .stream().map(UserCourse::getCourseId).collect(Collectors.toList());
 
@@ -120,17 +119,35 @@ public class CourseServiceImpl implements CourseService {
         if (course == null) {
             throw new BusinessException(404, "课程不存在");
         }
+
+        if (!isCourseMember(courseId, user.getUserId())) {
+            throw new BusinessException(403, "非课程成员，无权查看");
+        }
+
         return Result.success(course);
     }
 
-    /** 生成6位选课码 */
+    /** 判断用户是否是该课程成员（无论角色） */
+    private boolean isCourseMember(Long courseId, Long userId) {
+        return userCourseMapper.selectCount(
+                new LambdaQueryWrapper<UserCourse>()
+                        .eq(UserCourse::getCourseId, courseId)
+                        .eq(UserCourse::getUserId, userId)) > 0;
+    }
+
+    /** 生成6位不重复选课码 */
     private String generateCourseCode() {
         String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         Random r = new Random();
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 6; i++) {
-            sb.append(chars.charAt(r.nextInt(chars.length())));
-        }
-        return sb.toString();
+        String code;
+        do {
+            StringBuilder sb = new StringBuilder(6);
+            for (int i = 0; i < 6; i++) {
+                sb.append(chars.charAt(r.nextInt(chars.length())));
+            }
+            code = sb.toString();
+        } while (courseMapper.selectCount(
+                new LambdaQueryWrapper<Course>().eq(Course::getCourseCode, code)) > 0);
+        return code;
     }
 }
