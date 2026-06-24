@@ -36,6 +36,17 @@ export const api = {
     })
   },
 
+  /** 获取当前用户信息 */
+  getProfile(token) {
+    return authRequest('/auth/me', {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      }
+    })
+  },
+
   sendCode(phone) {
     return request(`/user/send-code?phone=${phone}`)
   },
@@ -47,5 +58,37 @@ export const api = {
   },
   getSchools() {
     return request('/school/list')
+  },
+
+  // ========== 课堂 ==========
+  /** 置顶课程 */
+  getTopCourses() {
+    return request('/classroom/top')
+  },
+  /** 我学的课程（按学期） */
+  getMyLearningCourses(semester) {
+    return request(`/classroom/my-learning?semester=${encodeURIComponent(semester)}`)
+  },
+  /** 我协助的课程（按学期） */
+  getMyAssistingCourses(semester) {
+    return request(`/classroom/my-assisting?semester=${encodeURIComponent(semester)}`)
+  },
+  /** 加入课程 */
+  joinCourse(code) {
+    return request('/classroom/join', {
+      method: 'POST',
+      body: JSON.stringify({ code })
+    })
+  },
+  /** 创建课程（教师） */
+  createCourse(body) {
+    return request('/classroom/create', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    })
+  },
+  /** 搜索课程 */
+  searchCourses(keyword) {
+    return request(`/classroom/search?keyword=${encodeURIComponent(keyword)}`)
   }
 }

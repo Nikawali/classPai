@@ -98,6 +98,8 @@
 import { ref, reactive } from 'vue'
 import { api } from '../api/request.js'
 
+const emit = defineEmits(['goRegister', 'loginSuccess'])
+
 // ========== 表单 ==========
 const form = reactive({ username: '', password: '' })
 const showPassword = ref(false)
@@ -138,7 +140,9 @@ async function handleLogin() {
     const data = res.data
     // token 存入 sessionStorage，关闭页面即失效
     sessionStorage.setItem('token', data.token)
+    sessionStorage.setItem('role', data.role)
     alert(`登录成功！\n用户：${data.userName}\n角色：${data.role === 'TEACHER' ? '教师' : '学生'}`)
+    emit('loginSuccess')
   } catch (e) {
     errorMsg.value = e.message
   } finally {
