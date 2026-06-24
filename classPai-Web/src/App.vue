@@ -1,11 +1,16 @@
 <template>
   <div id="app-root">
-    <Register />
+    <Register v-if="page === 'register'" @goLogin="page = 'login'" />
+    <Login v-else @goRegister="page = 'register'" />
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
+import Login from './views/Login.vue'
 import Register from './views/Register.vue'
+
+const page = ref('login')
 </script>
 
 <style>
@@ -22,9 +27,5 @@ body {
 }
 #app-root {
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
 }
 </style>

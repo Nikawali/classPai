@@ -105,6 +105,10 @@
 
       <!-- 提交 -->
       <button class="btn-submit" @click="handleRegister">注册</button>
+
+      <p class="switch-link">
+        已有账号？<a href="#" @click.prevent="$emit('goLogin')">返回登录</a>
+      </p>
     </div>
   </div>
 </template>
@@ -350,4 +354,15 @@ async function handleRegister() {
   transition: background .2s;
 }
 .btn-submit:hover { background: #3a7bc8; }
+
+.switch-link {
+  text-align: center;
+  font-size: 13px;
+  color: #999;
+  margin-top: 8px;
+}
+.switch-link a {
+  color: #4a90d9;
+  text-decoration: none;
+}
 </style>
