@@ -1,6 +1,6 @@
 package org.example.classpai.controller;
 
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import org.example.classpai.common.PageResult;
 import org.example.classpai.common.Result;
 import org.example.classpai.dto.CourseDTO;
@@ -19,42 +19,42 @@ public class CourseController {
         this.courseService = courseService;
     }
 
-    /** 创建课程 */
+    /** 创建课程（教师） */
     @PostMapping
-    public Result<Course> create(@RequestBody CourseDTO dto, HttpSession session) {
-        User user = (User) session.getAttribute("user");
+    public Result<Course> create(@RequestBody CourseDTO dto, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
         return courseService.createCourse(dto, user);
     }
 
     /** 我的课程（教师） */
     @GetMapping("/my")
-    public PageResult<Course> myCourses(HttpSession session,
-                                         @RequestParam(defaultValue = "1") int page,
-                                         @RequestParam(defaultValue = "10") int pageSize) {
-        User user = (User) session.getAttribute("user");
+    public PageResult<Course> myCourses(@RequestParam(defaultValue = "1") int page,
+                                         @RequestParam(defaultValue = "10") int pageSize,
+                                         HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
         return courseService.listMyCourses(user, page, pageSize);
     }
 
-    /** 加入课程（学生） */
+    /** 通过选课码加入课程（学生/教师均可用） */
     @PostMapping("/join")
-    public Result<?> join(@RequestParam String courseCode, HttpSession session) {
-        User user = (User) session.getAttribute("user");
+    public Result<?> join(@RequestParam String courseCode, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
         return courseService.joinCourse(courseCode, user);
     }
 
     /** 已加入的课程（学生） */
     @GetMapping("/joined")
-    public PageResult<Course> joinedCourses(HttpSession session,
-                                             @RequestParam(defaultValue = "1") int page,
-                                             @RequestParam(defaultValue = "10") int pageSize) {
-        User user = (User) session.getAttribute("user");
+    public PageResult<Course> joinedCourses(@RequestParam(defaultValue = "1") int page,
+                                             @RequestParam(defaultValue = "10") int pageSize,
+                                             HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
         return courseService.listJoinedCourses(user, page, pageSize);
     }
 
-    /** 课程详情 */
+    /** 课程详情（仅课程成员可查看） */
     @GetMapping("/{courseId}")
-    public Result<Course> detail(@PathVariable Long courseId, HttpSession session) {
-        User user = (User) session.getAttribute("user");
+    public Result<Course> detail(@PathVariable Long courseId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
         return courseService.getCourseDetail(courseId, user);
     }
 }

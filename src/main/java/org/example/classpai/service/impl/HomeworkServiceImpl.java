@@ -19,24 +19,25 @@ public class HomeworkServiceImpl implements HomeworkService {
     private final HomeworkMapper homeworkMapper;
     private final SubmissionMapper submissionMapper;
     private final CourseMapper courseMapper;
-    private final TeacherCourseMapper teacherCourseMapper;
+    private final UserCourseMapper userCourseMapper;
 
     public HomeworkServiceImpl(HomeworkMapper homeworkMapper,
                                SubmissionMapper submissionMapper,
                                CourseMapper courseMapper,
-                               TeacherCourseMapper teacherCourseMapper) {
+                               UserCourseMapper userCourseMapper) {
         this.homeworkMapper = homeworkMapper;
         this.submissionMapper = submissionMapper;
         this.courseMapper = courseMapper;
-        this.teacherCourseMapper = teacherCourseMapper;
+        this.userCourseMapper = userCourseMapper;
     }
 
     /** 校验用户是否该课程教师 */
     private void checkTeacher(Long courseId, Long userId) {
-        LambdaQueryWrapper<TeacherCourse> w = new LambdaQueryWrapper<>();
-        w.eq(TeacherCourse::getCourseId, courseId)
-         .eq(TeacherCourse::getTeacherUserId, userId);
-        if (teacherCourseMapper.selectCount(w) == 0) {
+        LambdaQueryWrapper<UserCourse> w = new LambdaQueryWrapper<>();
+        w.eq(UserCourse::getCourseId, courseId)
+         .eq(UserCourse::getUserId, userId)
+         .eq(UserCourse::getRole, "teacher");
+        if (userCourseMapper.selectCount(w) == 0) {
             throw new BusinessException(403, "无权操作");
         }
     }

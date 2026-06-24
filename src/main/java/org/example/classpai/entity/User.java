@@ -17,10 +17,21 @@ public class User {
 
     private String password;
 
-    /** TEACHER / STUDENT */
+    /** teacher / student */
     private String role;
 
     private String phone;
+
+    private String gender;
+
+    /** 学校 */
+    private String school;
+
+    /** 学院 */
+    private String college;
+
+    /** 专业 */
+    private String major;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
