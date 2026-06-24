@@ -2,14 +2,13 @@ package org.example.classpai.auth.service;
 
 import org.example.classpai.auth.dto.LoginRequest;
 import org.example.classpai.auth.dto.LoginResponse;
+import org.example.classpai.auth.dto.UserProfileResponse;
 
 public interface AuthService {
 
-    /**
-     * 用户登录
-     * @param request  用户名 + 密码
-     * @param clientIp 客户端 IP（用于限流）
-     * @return 登录结果（含 Token）
-     */
+    /** 用户登录 */
     LoginResponse login(LoginRequest request, String clientIp);
+
+    /** 根据 Token 获取用户详情 */
+    UserProfileResponse getProfile(String token);
 }

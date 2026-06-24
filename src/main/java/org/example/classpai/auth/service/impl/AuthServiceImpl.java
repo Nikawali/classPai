@@ -3,6 +3,7 @@ package org.example.classpai.auth.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.example.classpai.auth.dto.LoginRequest;
 import org.example.classpai.auth.dto.LoginResponse;
+import org.example.classpai.auth.dto.UserProfileResponse;
 import org.example.classpai.auth.security.LoginRateLimiter;
 import org.example.classpai.auth.service.AuthService;
 import org.example.classpai.auth.service.TokenService;
@@ -24,8 +25,8 @@ public class AuthServiceImpl implements AuthService {
     private final LoginRateLimiter rateLimiter;
 
     public AuthServiceImpl(UserMapper userMapper,
-                           TokenService tokenService,
-                           LoginRateLimiter rateLimiter) {
+            TokenService tokenService,
+            LoginRateLimiter rateLimiter) {
         this.userMapper = userMapper;
         this.tokenService = tokenService;
         this.rateLimiter = rateLimiter;
@@ -69,8 +70,7 @@ public class AuthServiceImpl implements AuthService {
                 null,
                 user.getUserId(),
                 user.getUserName(),
-                user.getRole()
-        );
+                user.getRole());
 
         String token = tokenService.generateToken(userInfo);
         userInfo.setToken(token);
@@ -84,7 +84,8 @@ public class AuthServiceImpl implements AuthService {
         // 优先按手机号查
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>().eq(User::getPhone, account));
-        if (user != null) return user;
+        if (user != null)
+            return user;
 
         // 尝试按 userId 查
         try {
@@ -94,5 +95,31 @@ public class AuthServiceImpl implements AuthService {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    @Override
+    public UserProfileResponse getProfile(String token) {
+        // 1. 校验 Token
+        LoginResponse tokenData = tokenService.validateToken(token);
+        if (tokenData == null) {
+            throw new BusinessException(401, "Token无效或已过期，请重新登录");
+        }
+
+        // 2. 查询数据库获取完整用户信息
+        User user = userMapper.selectById(tokenData.getUserId());
+        if (user == null) {
+            throw new BusinessException(400, "用户不存在");
+        }
+
+        // 3. 组装返回
+        UserProfileResponse profile = new UserProfileResponse();
+        profile.setUserId(user.getUserId());
+        profile.setUserName(user.getUserName());
+        profile.setPhone(user.getPhone());
+        profile.setRole(user.getRole());
+        profile.setCreateTime(user.getCreateTime() != null
+                ? user.getCreateTime().toString()
+                : null);
+        return profile;
     }
 }
