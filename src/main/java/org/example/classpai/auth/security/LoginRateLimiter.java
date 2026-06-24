@@ -1,11 +1,12 @@
 package org.example.classpai.auth.security;
 
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
- * 登录限流与防暴力破解
+ * 登录限流与防暴力破解（Redis 版）
  * 
  * - 每个 IP 每分钟最多 10 次登录请求
  * - 同一账号连续 5 次失败后锁定 15 分钟
@@ -13,57 +14,55 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class LoginRateLimiter {
 
-    // ========== IP 限流 ==========
     private static final int IP_MAX_REQUESTS = 10;
-    private static final long IP_WINDOW_MS = 60_000;
+    private static final int IP_WINDOW_SECONDS = 60;
+    private static final int MAX_FAILURES = 5;
+    private static final int LOCK_DURATION_SECONDS = 15 * 60;
+    private static final int FAIL_TTL_SECONDS = 30 * 60; // 失败计数 30 分钟自动清理
 
-    private static class IpBucket {
-        long windowStart = System.currentTimeMillis();
-        int count;
+    private static final String IP_KEY_PREFIX = "auth:ratelimit:ip:";
+    private static final String LOCK_KEY_PREFIX = "auth:lockout:locked:";
+    private static final String FAIL_KEY_PREFIX = "auth:lockout:fail:";
+
+    private final StringRedisTemplate redisTemplate;
+
+    public LoginRateLimiter(StringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
     }
-    private final ConcurrentHashMap<String, IpBucket> ipBuckets = new ConcurrentHashMap<>();
 
     /**
      * @return true=允许，false=被限流
      */
     public boolean tryAcquireIP(String ip) {
-        ipBuckets.entrySet().removeIf(e ->
-                System.currentTimeMillis() - e.getValue().windowStart > IP_WINDOW_MS);
-
-        IpBucket bucket = ipBuckets.computeIfAbsent(ip, k -> new IpBucket());
-        synchronized (bucket) {
-            if (System.currentTimeMillis() - bucket.windowStart > IP_WINDOW_MS) {
-                bucket.windowStart = System.currentTimeMillis();
-                bucket.count = 0;
-            }
-            if (bucket.count >= IP_MAX_REQUESTS) {
-                return false;
-            }
-            bucket.count++;
-            return true;
+        String key = IP_KEY_PREFIX + ip;
+        Long count = redisTemplate.opsForValue().increment(key);
+        if (count != null && count == 1) {
+            redisTemplate.expire(key, IP_WINDOW_SECONDS, TimeUnit.SECONDS);
         }
+        return count == null || count <= IP_MAX_REQUESTS;
     }
-
-    // ========== 账号锁定 ==========
-    private static final int MAX_FAILURES = 5;
-    private static final long LOCK_DURATION_MS = 15 * 60_000;
-
-    private final ConcurrentHashMap<String, Integer> failureCount = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Long> lockedUntil = new ConcurrentHashMap<>();
 
     /**
      * 记录一次登录失败
      * @return true=已被锁定
      */
     public boolean recordFailure(String username) {
-        Long lockEnd = lockedUntil.get(username);
-        if (lockEnd != null && System.currentTimeMillis() < lockEnd) {
-            return true; // 仍在锁定
+        // 已在锁定中
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(LOCK_KEY_PREFIX + username))) {
+            return true;
         }
-        lockedUntil.remove(username);
-        int count = failureCount.merge(username, 1, Integer::sum);
-        if (count >= MAX_FAILURES) {
-            lockedUntil.put(username, System.currentTimeMillis() + LOCK_DURATION_MS);
+
+        String failKey = FAIL_KEY_PREFIX + username;
+        Long count = redisTemplate.opsForValue().increment(failKey);
+        if (count != null && count == 1) {
+            redisTemplate.expire(failKey, FAIL_TTL_SECONDS, TimeUnit.SECONDS);
+        }
+
+        if (count != null && count >= MAX_FAILURES) {
+            redisTemplate.opsForValue().set(
+                    LOCK_KEY_PREFIX + username,
+                    "1",
+                    LOCK_DURATION_SECONDS, TimeUnit.SECONDS);
             return true;
         }
         return false;
@@ -73,32 +72,22 @@ public class LoginRateLimiter {
      * 检查账号是否被锁定
      */
     public boolean isLocked(String username) {
-        Long lockEnd = lockedUntil.get(username);
-        if (lockEnd != null && System.currentTimeMillis() < lockEnd) {
-            return true;
-        }
-        if (lockEnd != null) {
-            lockedUntil.remove(username);
-            failureCount.remove(username);
-        }
-        return false;
+        return Boolean.TRUE.equals(redisTemplate.hasKey(LOCK_KEY_PREFIX + username));
     }
 
     /**
      * 登录成功后清除失败记录
      */
     public void clear(String username) {
-        failureCount.remove(username);
-        lockedUntil.remove(username);
+        redisTemplate.delete(FAIL_KEY_PREFIX + username);
+        redisTemplate.delete(LOCK_KEY_PREFIX + username);
     }
 
     /**
      * 获取剩余锁定秒数
      */
     public long lockLeftSeconds(String username) {
-        Long lockEnd = lockedUntil.get(username);
-        if (lockEnd == null) return 0;
-        long left = (lockEnd - System.currentTimeMillis()) / 1000;
-        return Math.max(0, left);
+        Long ttl = redisTemplate.getExpire(LOCK_KEY_PREFIX + username, TimeUnit.SECONDS);
+        return ttl == null || ttl < 0 ? 0 : ttl;
     }
 }

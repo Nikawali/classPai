@@ -21,24 +21,24 @@
       <form class="form" @submit.prevent="handleLogin">
         <!-- 账号 -->
         <div class="field">
-          <label for="username">账号</label>
+          <label for="userAccount">账号</label>
           <div class="input-wrapper">
             <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18">
               <circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
               <path d="M4 20c0-4 4-7 8-7s8 3 8 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
             <input
-              id="username"
-              v-model="form.username"
+              id="userAccount"
+              v-model="form.userAccount"
               type="text"
               placeholder="请输入手机号或学号"
               class="input"
-              :class="{ 'input-error': fieldErrors.username }"
-              autocomplete="username"
-              @input="clearFieldError('username')"
+              :class="{ 'input-error': fieldErrors.userAccount }"
+              autocomplete="userAccount"
+              @input="clearFieldError('userAccount')"
             />
           </div>
-          <span v-if="fieldErrors.username" class="field-err">{{ fieldErrors.username }}</span>
+          <span v-if="fieldErrors.userAccount" class="field-err">{{ fieldErrors.userAccount }}</span>
         </div>
 
         <!-- 密码 -->
@@ -101,11 +101,11 @@ import { api } from '../api/request.js'
 const emit = defineEmits(['goRegister', 'loginSuccess'])
 
 // ========== 表单 ==========
-const form = reactive({ username: '', password: '' })
+const form = reactive({ userAccount: '', password: '' })
 const showPassword = ref(false)
 const loading = ref(false)
 const errorMsg = ref('')
-const fieldErrors = reactive({ username: '', password: '' })
+const fieldErrors = reactive({ userAccount: '', password: '' })
 
 function clearFieldError(field) {
   fieldErrors[field] = ''
@@ -116,13 +116,13 @@ function clearFieldError(field) {
 async function handleLogin() {
   // 清除旧错误
   errorMsg.value = ''
-  fieldErrors.username = ''
+  fieldErrors.userAccount = ''
   fieldErrors.password = ''
 
   // 前端校验
   let valid = true
-  if (!form.username.trim()) {
-    fieldErrors.username = '请输入手机号或学号'
+  if (!form.userAccount.trim()) {
+    fieldErrors.userAccount = '请输入手机号或学号'
     valid = false
   }
   if (!form.password) {
@@ -134,7 +134,7 @@ async function handleLogin() {
   loading.value = true
   try {
     const res = await api.login({
-      username: form.username.trim(),
+      userAccount: form.userAccount.trim(),
       password: form.password
     })
     const data = res.data
