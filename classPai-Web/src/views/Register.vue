@@ -1,114 +1,214 @@
 <template>
-  <div class="register-card">
-    <h2 class="title">注册 ClassPai</h2>
-
-    <div class="form">
-      <!-- 学号/工号 -->
-      <div class="field">
-        <label>学号/工号</label>
-        <input v-model="form.userId" type="number" placeholder="请输入学号或工号"
-          class="input" />
+  <div class="register-wrapper">
+    <div class="register-card">
+      <!-- 标题 -->
+      <div class="header">
+        <h1 class="title">创建账号</h1>
+        <p class="subtitle">加入 ClassPai 课堂管理平台</p>
       </div>
 
-      <!-- 姓名 -->
-      <div class="field">
-        <label>姓名</label>
-        <input v-model="form.userName" type="text" placeholder="请输入真实姓名"
-          class="input" />
+      <!-- 错误提示区域 -->
+      <div v-if="errorMsg" class="error-banner" role="alert">
+        <svg class="error-icon" viewBox="0 0 24 24" width="18" height="18">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+          <line x1="12" y1="8" x2="12" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="12" cy="16.5" r="1" fill="currentColor"/>
+        </svg>
+        <span>{{ errorMsg }}</span>
       </div>
 
-      <!-- 手机号 -->
-      <div class="field">
-        <label>手机号</label>
-        <input v-model="form.phone" type="tel" placeholder="请输入手机号"
-          maxlength="11" class="input" />
-      </div>
-
-      <!-- 密码 -->
-      <div class="field">
-        <label>密码</label>
-        <input v-model="form.password" type="password" placeholder="请输入密码"
-          class="input" />
-      </div>
-
-      <!-- 性别 -->
-      <div class="field">
-        <label>性别</label>
-        <div class="radio-group">
-          <label class="radio" :class="{ active: form.gender === 'male' }">
-            <input v-model="form.gender" type="radio" value="male" />
-            男
-          </label>
-          <label class="radio" :class="{ active: form.gender === 'female' }">
-            <input v-model="form.gender" type="radio" value="female" />
-            女
-          </label>
-        </div>
-      </div>
-
-      <!-- 角色选择 -->
-      <div class="field">
-        <label>角色</label>
-        <div class="radio-group">
-          <label class="radio" :class="{ active: form.role === 'student' }">
-            <input v-model="form.role" type="radio" value="student" />
-            学生
-          </label>
-          <label class="radio" :class="{ active: form.role === 'teacher' }">
-            <input v-model="form.role" type="radio" value="teacher" />
-            教师
-          </label>
-        </div>
-      </div>
-
-      <!-- 学校下拉框 -->
-      <div class="field">
-        <label>学校</label>
-        <div class="dropdown-wrapper" ref="dropdownRef">
-          <input v-model="schoolSearch" type="text" placeholder="搜索或选择学校"
-            class="input" @focus="showDropdown = true" @input="onSchoolInput" />
-          <ul v-if="showDropdown && filteredSchools.length" class="dropdown">
-            <li v-for="s in filteredSchools" :key="s.id"
-              @click="selectSchool(s)">
-              {{ s.schoolName }}
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- 学生专属：学院 + 专业 -->
-      <template v-if="form.role === 'student'">
+      <!-- 表单 -->
+      <form class="form" @submit.prevent="handleRegister">
+        <!-- 学号/工号 -->
         <div class="field">
-          <label>学院</label>
-          <input v-model="form.college" type="text" placeholder="请输入学院名称"
-            class="input" />
+          <label for="reg-userId">学号/工号</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18">
+              <rect x="3" y="5" width="18" height="3" rx="1" fill="none" stroke="currentColor" stroke-width="2"/>
+              <rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+              <line x1="7" y1="14" x2="17" y2="14" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            <input id="reg-userId" v-model="form.userId" type="number"
+              placeholder="请输入学号或工号" class="input"
+              :class="{ 'input-error': fieldErrors.userId }"
+              @input="clearFieldError('userId')" />
+          </div>
+          <span v-if="fieldErrors.userId" class="field-err">{{ fieldErrors.userId }}</span>
         </div>
+
+        <!-- 姓名 -->
         <div class="field">
-          <label>专业</label>
-          <input v-model="form.major" type="text" placeholder="请输入专业名称"
-            class="input" />
+          <label for="reg-userName">姓名</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18">
+              <circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
+              <path d="M4 20c0-4 4-7 8-7s8 3 8 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <input id="reg-userName" v-model="form.userName" type="text"
+              placeholder="请输入真实姓名" class="input"
+              :class="{ 'input-error': fieldErrors.userName }"
+              @input="clearFieldError('userName')" />
+          </div>
+          <span v-if="fieldErrors.userName" class="field-err">{{ fieldErrors.userName }}</span>
         </div>
-      </template>
 
-      <!-- 验证码 -->
-      <div class="field">
-        <label>验证码</label>
-        <div class="code-row">
-          <input v-model="form.code" type="text" placeholder="输入验证码"
-            maxlength="6" class="input code-input" />
-          <button class="btn-code" :disabled="codeBtnDisabled"
-            @click="sendCode">
-            {{ codeBtnText }}
-          </button>
+        <!-- 手机号 -->
+        <div class="field">
+          <label for="reg-phone">手机号</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18">
+              <rect x="6" y="1" width="12" height="20" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+              <circle cx="12" cy="18" r="1.5" fill="currentColor"/>
+            </svg>
+            <input id="reg-phone" v-model="form.phone" type="tel"
+              placeholder="请输入11位手机号" maxlength="11" class="input"
+              :class="{ 'input-error': fieldErrors.phone }"
+              @input="clearFieldError('phone')" />
+          </div>
+          <span v-if="fieldErrors.phone" class="field-err">{{ fieldErrors.phone }}</span>
         </div>
-      </div>
 
-      <!-- 提交 -->
-      <button class="btn-submit" @click="handleRegister">注册</button>
+        <!-- 密码 -->
+        <div class="field">
+          <label for="reg-password">密码</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18">
+              <rect x="3" y="11" width="18" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <input id="reg-password" v-model="form.password"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="请输入密码（6-16位）" class="input"
+              :class="{ 'input-error': fieldErrors.password }"
+              @input="clearFieldError('password')" />
+            <button type="button" class="toggle-pwd"
+              :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+              @click="showPassword = !showPassword">
+              <svg v-if="showPassword" viewBox="0 0 24 24" width="20" height="20">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" stroke-width="2"/>
+                <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+                <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" width="20" height="20">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" stroke-width="2"/>
+                <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </button>
+          </div>
+          <span v-if="fieldErrors.password" class="field-err">{{ fieldErrors.password }}</span>
+        </div>
 
-      <p class="switch-link">
-        已有账号？<a href="#" @click.prevent="$emit('goLogin')">返回登录</a>
-      </p>
+        <!-- 性别 -->
+        <div class="field">
+          <label>性别</label>
+          <div class="radio-group">
+            <label class="radio" :class="{ active: form.gender === 'male' }">
+              <input v-model="form.gender" type="radio" value="male" /> 男
+            </label>
+            <label class="radio" :class="{ active: form.gender === 'female' }">
+              <input v-model="form.gender" type="radio" value="female" /> 女
+            </label>
+          </div>
+        </div>
+
+        <!-- 角色 -->
+        <div class="field">
+          <label>角色</label>
+          <div class="radio-group">
+            <label class="radio" :class="{ active: form.role === 'student' }">
+              <input v-model="form.role" type="radio" value="student" /> 学生
+            </label>
+            <label class="radio" :class="{ active: form.role === 'teacher' }">
+              <input v-model="form.role" type="radio" value="teacher" /> 教师
+            </label>
+          </div>
+        </div>
+
+        <!-- 学校下拉框 -->
+        <div class="field">
+          <label>学校</label>
+          <div class="input-wrapper dropdown-wrapper" ref="dropdownRef">
+            <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18">
+              <path d="M3 9l9 7 9-7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+            <input v-model="schoolSearch" type="text" placeholder="搜索或选择学校"
+              class="input" style="padding-right:36px"
+              @focus="showDropdown = true" @input="onSchoolInput" />
+            <svg class="input-icon" style="left:auto;right:12px"
+              viewBox="0 0 24 24" width="14" height="14">
+              <path d="M8 10l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <ul v-if="showDropdown && filteredSchools.length" class="dropdown">
+              <li v-for="s in filteredSchools" :key="s.id"
+                @click="selectSchool(s)">{{ s.schoolName }}</li>
+            </ul>
+          </div>
+          <span v-if="fieldErrors.school" class="field-err">{{ fieldErrors.school }}</span>
+        </div>
+
+        <!-- 学生专属：学院 + 专业 -->
+        <template v-if="form.role === 'student'">
+          <div class="field">
+            <label for="reg-college">学院</label>
+            <div class="input-wrapper">
+              <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18">
+                <path d="M2 22L12 2l10 20H2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                <line x1="8" y1="15" x2="16" y2="15" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+              <input id="reg-college" v-model="form.college" type="text"
+                placeholder="请输入学院名称" class="input"
+                @input="clearFieldError('college')" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="reg-major">专业</label>
+            <div class="input-wrapper">
+              <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18">
+                <rect x="4" y="2" width="16" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+                <line x1="8" y1="7" x2="16" y2="7" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="8" y1="11" x2="16" y2="11" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+              <input id="reg-major" v-model="form.major" type="text"
+                placeholder="请输入专业名称" class="input"
+                @input="clearFieldError('major')" />
+            </div>
+          </div>
+        </template>
+
+        <!-- 验证码 -->
+        <div class="field">
+          <label for="reg-code">验证码</label>
+          <div class="code-row">
+            <div class="input-wrapper" style="flex:1">
+              <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18">
+                <rect x="4" y="6" width="4" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="2"/>
+                <rect x="10" y="6" width="4" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="2"/>
+                <rect x="16" y="6" width="4" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              <input id="reg-code" v-model="form.code" type="text"
+                placeholder="输入验证码" maxlength="6" class="input"
+                :class="{ 'input-error': fieldErrors.code }"
+                @input="clearFieldError('code')" />
+            </div>
+            <button type="button" class="btn-code"
+              :disabled="codeCountdown > 0 || !form.phone"
+              @click="sendCode">
+              {{ codeCountdown > 0 ? `${codeCountdown}s` : '获取验证码' }}
+            </button>
+          </div>
+          <span v-if="fieldErrors.code" class="field-err">{{ fieldErrors.code }}</span>
+        </div>
+
+        <!-- 提交 -->
+        <button type="submit" class="btn-submit" :disabled="loading">
+          <span v-if="loading" class="spinner"></span>
+          <span v-else>注 册</span>
+        </button>
+
+        <p class="switch-link">
+          已有账号？<a href="#" @click.prevent="$emit('goLogin')">返回登录</a>
+        </p>
+      </form>
     </div>
   </div>
 </template>
@@ -117,6 +217,9 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { api } from '../api/request.js'
 
+const emit = defineEmits(['goLogin'])
+
+// ========== 表单数据 ==========
 const form = reactive({
   userId: '',
   userName: '',
@@ -130,7 +233,17 @@ const form = reactive({
   code: ''
 })
 
-// 学校下拉框
+const showPassword = ref(false)
+const loading = ref(false)
+const errorMsg = ref('')
+const fieldErrors = reactive({})
+
+function clearFieldError(field) {
+  fieldErrors[field] = ''
+  errorMsg.value = ''
+}
+
+// ========== 学校下拉框 ==========
 const schools = ref([])
 const schoolSearch = ref('')
 const showDropdown = ref(false)
@@ -146,13 +259,13 @@ function selectSchool(school) {
   form.school = school.schoolName
   schoolSearch.value = school.schoolName
   showDropdown.value = false
+  clearFieldError('school')
 }
 
 function onSchoolInput() {
   showDropdown.value = true
 }
 
-// 点击外部关闭下拉
 function onClickOutside(e) {
   if (dropdownRef.value && !dropdownRef.value.contains(e.target)) {
     showDropdown.value = false
@@ -161,7 +274,6 @@ function onClickOutside(e) {
 onMounted(() => document.addEventListener('click', onClickOutside))
 onUnmounted(() => document.removeEventListener('click', onClickOutside))
 
-// 加载学校列表
 onMounted(async () => {
   try {
     const res = await api.getSchools()
@@ -171,21 +283,19 @@ onMounted(async () => {
   }
 })
 
-// 验证码
+// ========== 验证码 ==========
 const codeCountdown = ref(0)
 let timer = null
 
-const codeBtnDisabled = computed(() => codeCountdown.value > 0 || !form.phone)
-const codeBtnText = computed(() => {
-  if (codeCountdown.value > 0) return `${codeCountdown.value}s`
-  return '获取验证码'
-})
-
 async function sendCode() {
-  if (!form.phone) return alert('请先输入手机号')
+  if (!/^\d{11}$/.test(form.phone)) {
+    errorMsg.value = '请先输入正确的11位手机号'
+    return
+  }
   try {
-    await api.sendCode(form.phone)
-    alert('验证码已发送')
+    const res = await api.sendCode(form.phone)
+    form.code = res.data
+    alert('模拟验证码：' + res.data)
     codeCountdown.value = 60
     timer = setInterval(() => {
       codeCountdown.value--
@@ -195,57 +305,118 @@ async function sendCode() {
       }
     }, 1000)
   } catch (e) {
-    alert(e.message)
+    errorMsg.value = e.message
   }
 }
 onUnmounted(() => { if (timer) clearInterval(timer) })
 
-// 注册
+// ========== 表单校验 ==========
+function validateForm() {
+  let valid = true
+  if (!form.userId) { fieldErrors.userId = '请输入学号/工号'; valid = false }
+  if (!form.userName.trim()) { fieldErrors.userName = '请输入姓名'; valid = false }
+  if (!/^\d{11}$/.test(form.phone)) { fieldErrors.phone = '请输入正确的11位手机号'; valid = false }
+  if (!form.password || form.password.length < 6) { fieldErrors.password = '密码至少6位'; valid = false }
+  if (!form.school) { fieldErrors.school = '请选择学校'; valid = false }
+  if (!form.code) { fieldErrors.code = '请输入验证码'; valid = false }
+  return valid
+}
+
+// ========== 注册提交 ==========
 async function handleRegister() {
-  if (!form.userId) return alert('请输入学号/工号')
-  if (!form.userName) return alert('请输入姓名')
-  if (!form.phone)   return alert('请输入手机号')
-  if (!form.password) return alert('请输入密码')
-  if (!form.school)  return alert('请选择学校')
-  if (!form.code)    return alert('请输入验证码')
+  errorMsg.value = ''
+  Object.keys(fieldErrors).forEach(k => fieldErrors[k] = '')
+  if (!validateForm()) return
 
-  const body = {
-    userId: Number(form.userId),
-    userName: form.userName,
-    phone: form.phone,
-    password: form.password,
-    gender: form.gender,
-    role: form.role,
-    school: form.school,
-    college: form.role === 'student' ? form.college : null,
-    major: form.role === 'student' ? form.major : null,
-    code: form.code
-  }
-
+  loading.value = true
   try {
+    const body = {
+      userId: Number(form.userId),
+      userName: form.userName.trim(),
+      phone: form.phone,
+      password: form.password,
+      gender: form.gender,
+      role: form.role,
+      school: form.school,
+      college: form.role === 'student' ? form.college : null,
+      major: form.role === 'student' ? form.major : null,
+      code: form.code
+    }
     await api.register(body)
-    alert('注册成功！')
+    alert('注册成功！即将返回登录')
+    // 切回登录页
+    emit('goLogin')
   } catch (e) {
-    alert(e.message)
+    errorMsg.value = e.message
+  } finally {
+    loading.value = false
   }
 }
 </script>
 
 <style scoped>
+/* ========== 外层居中（对齐 Login 风格） ========== */
+.register-wrapper {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+}
+
 .register-card {
-  width: 420px;
+  width: 460px;
+  max-width: 100%;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 16px rgba(0,0,0,.08);
-  padding: 40px 36px;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+  padding: 44px 36px 36px;
+}
+
+/* ========== 头部（对齐 Login） ========== */
+.header {
+  text-align: center;
+  margin-bottom: 32px;
 }
 .title {
-  text-align: center;
-  font-size: 22px;
+  font-size: 26px;
   color: #1a1a1a;
-  margin-bottom: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
 }
-.form { display: flex; flex-direction: column; gap: 18px; }
+.subtitle {
+  font-size: 14px;
+  color: #999;
+}
+
+/* ========== 错误横幅（对齐 Login） ========== */
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 13px;
+  margin-bottom: 20px;
+  animation: slideDown .25s ease;
+}
+.error-icon { flex-shrink: 0; }
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== 表单（对齐 Login） ========== */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 .field {
   display: flex;
   flex-direction: column;
@@ -256,113 +427,203 @@ async function handleRegister() {
   color: #555;
   font-weight: 500;
 }
+
+/* ========== 输入框（对齐 Login） ========== */
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-icon {
+  position: absolute;
+  left: 12px;
+  color: #bbb;
+  pointer-events: none;
+  z-index: 1;
+}
 .input {
   width: 100%;
-  height: 40px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 0 12px;
+  height: 44px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 0 42px 0 38px;
   font-size: 14px;
   outline: none;
-  transition: border-color .2s;
+  transition: border-color .2s, box-shadow .2s;
+  box-sizing: border-box;
+  background: #fafafa;
 }
-.input:focus { border-color: #4a90d9; }
+.input:focus {
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 3px rgba(74,144,217,.12);
+  background: #fff;
+}
+.input-error {
+  border-color: #e74c3c;
+}
+.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(231,76,60,.12);
+}
+.field-err {
+  font-size: 12px;
+  color: #e74c3c;
+  padding-left: 2px;
+}
 
-/* 性别/角色 按钮组 */
+/* 密码可见性切换 */
+.toggle-pwd {
+  position: absolute;
+  right: 8px;
+  border: none;
+  background: none;
+  color: #bbb;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color .15s;
+}
+.toggle-pwd:hover { color: #666; }
+
+/* ========== 性别/角色 按钮组 ========== */
 .radio-group {
   display: flex;
   gap: 12px;
+  padding-top: 2px;
 }
 .radio {
   flex: 1;
-  height: 40px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 14px;
-  color: #666;
+  color: #888;
   transition: all .2s;
+  background: #fafafa;
 }
 .radio input { display: none; }
+.radio:hover { border-color: #4a90d9; }
 .radio.active {
   border-color: #4a90d9;
   color: #4a90d9;
   background: #f0f6ff;
 }
 
-/* 下拉 */
+/* ========== 下拉（对齐风格） ========== */
 .dropdown-wrapper { position: relative; }
 .dropdown {
   position: absolute;
-  top: 44px;
+  top: 48px;
   left: 0;
   right: 0;
   max-height: 200px;
   overflow-y: auto;
   background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
   box-shadow: 0 4px 12px rgba(0,0,0,.1);
   z-index: 10;
   list-style: none;
   padding: 4px 0;
 }
 .dropdown li {
-  padding: 8px 12px;
+  padding: 10px 14px;
   font-size: 13px;
   color: #333;
   cursor: pointer;
+  transition: background .15s;
 }
 .dropdown li:hover { background: #f0f6ff; }
 
-/* 验证码行 */
+/* ========== 验证码行 ========== */
 .code-row { display: flex; gap: 10px; }
-.code-input { flex: 1; }
 .btn-code {
   width: 110px;
-  height: 40px;
+  height: 44px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #4a90d9;
   color: #fff;
   font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
-  transition: background .2s;
+  transition: opacity .2s;
+  flex-shrink: 0;
 }
-.btn-code:hover { background: #3a7bc8; }
+.btn-code:hover { opacity: .88; }
 .btn-code:disabled {
   background: #ccc;
   cursor: not-allowed;
+  opacity: 1;
 }
 
-/* 提交 */
+/* ========== 提交按钮（对齐 Login 渐变） ========== */
 .btn-submit {
   width: 100%;
-  height: 44px;
+  height: 46px;
   border: none;
-  border-radius: 8px;
-  background: #4a90d9;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
   color: #fff;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   margin-top: 4px;
-  transition: background .2s;
+  transition: opacity .2s, transform .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.btn-submit:hover { background: #3a7bc8; }
+.btn-submit:hover {
+  opacity: .92;
+  transform: translateY(-1px);
+}
+.btn-submit:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+  transform: none;
+}
 
 .switch-link {
   text-align: center;
   font-size: 13px;
   color: #999;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 .switch-link a {
   color: #4a90d9;
   text-decoration: none;
+}
+
+/* 加载动画 */
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ========== 响应式（对齐 Login） ========== */
+@media (max-width: 480px) {
+  .register-wrapper {
+    padding: 16px;
+    align-items: flex-start;
+    padding-top: 60px;
+    background: #fff;
+  }
+  .register-card {
+    box-shadow: none;
+    padding: 0;
+    border-radius: 0;
+    width: 100%;
+  }
+  .title { font-size: 22px; }
 }
 </style>
