@@ -2,10 +2,8 @@ package org.example.classpai.interceptor;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.example.classpai.auth.dto.LoginResponse;
 import org.example.classpai.auth.service.TokenService;
 import org.example.classpai.entity.User;
-import org.example.classpai.mapper.UserMapper;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -13,11 +11,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class LoginInterceptor implements HandlerInterceptor {
 
     private final TokenService tokenService;
-    private final UserMapper userMapper;
 
-    public LoginInterceptor(TokenService tokenService, UserMapper userMapper) {
+    public LoginInterceptor(TokenService tokenService) {
         this.tokenService = tokenService;
-        this.userMapper = userMapper;
     }
 
     @Override
@@ -32,18 +28,14 @@ public class LoginInterceptor implements HandlerInterceptor {
             return false;
         }
         String token = auth.substring(7);
-        LoginResponse loginInfo = tokenService.validateToken(token);
-        if (loginInfo == null) {
+        User loginUser = tokenService.validateToken(token);
+        if (loginUser == null) {
             write401(response);
             return false;
         }
-        User user = userMapper.selectById(loginInfo.getUserId());
-        if (user == null) {
-            write401(response);
-            return false;
-        }
-        user.setPassword(null);
-        request.setAttribute("currentUser", user);
+
+        loginUser.setPassword(null);
+        request.setAttribute("currentUser", loginUser);
         request.setAttribute("token", token);
         tokenService.refreshToken(token);
         return true;

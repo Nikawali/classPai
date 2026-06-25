@@ -1,7 +1,7 @@
 package org.example.classpai.auth.service;
 
 import com.alibaba.fastjson2.JSON;
-import org.example.classpai.auth.dto.LoginResponse;
+import org.example.classpai.entity.User;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -26,11 +26,11 @@ public class TokenService {
     /**
      * 生成 Token 并存入 Redis
      */
-    public String generateToken(LoginResponse userInfo) {
+    public String generateToken(User user) {
         String token = UUID.randomUUID().toString().replace("-", "");
         String key = TOKEN_PREFIX + token;
         redisTemplate.opsForValue().set(key,
-                JSON.toJSONString(userInfo),
+                JSON.toJSONString(user),
                 TOKEN_TTL_HOURS, TimeUnit.HOURS);
         return token;
     }
@@ -38,11 +38,11 @@ public class TokenService {
     /**
      * 校验 Token，返回用户信息；无效则返回 null
      */
-    public LoginResponse validateToken(String token) {
+    public User validateToken(String token) {
         if (token == null || token.isBlank()) return null;
         String json = redisTemplate.opsForValue().get(TOKEN_PREFIX + token);
         if (json == null) return null;
-        return JSON.parseObject(json, LoginResponse.class);
+        return JSON.parseObject(json, User.class);
     }
 
     /**

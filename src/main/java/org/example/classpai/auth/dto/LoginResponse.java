@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 public class LoginResponse {
     private String token;
     private Long userId;
+    private String gender;
     private String userName;
     private String role;
     private String phone;

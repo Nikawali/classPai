@@ -65,12 +65,15 @@ public class AuthServiceImpl implements AuthService {
         // ---------- 5. 清除失败记录，生成 Token ----------
         rateLimiter.clear(account);
 
+        user.setPassword(null);
+
         LoginResponse userInfo = new LoginResponse();
+
         userInfo.setUserId(user.getUserId());
         userInfo.setUserName(user.getUserName());
         userInfo.setRole(user.getRole());
 
-        String token = tokenService.generateToken(userInfo);
+        String token = tokenService.generateToken(user);
         userInfo.setToken(token);
 
         log.info("用户 {} (userId={}) 登录成功", user.getUserName(), user.getUserId());
