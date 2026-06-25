@@ -44,13 +44,13 @@ public class LoginRateLimiter {
      * 记录一次登录失败
      * @return true=已被锁定
      */
-    public boolean recordFailure(String username) {
+    public boolean recordFailure(String userAccount) {
         // 已在锁定中
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(LOCK_KEY_PREFIX + username))) {
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(LOCK_KEY_PREFIX + userAccount))) {
             return true;
         }
 
-        String failKey = FAIL_KEY_PREFIX + username;
+        String failKey = FAIL_KEY_PREFIX + userAccount;
         Long count = redisTemplate.opsForValue().increment(failKey);
         if (count != null && count == 1) {
             redisTemplate.expire(failKey, FAIL_TTL_SECONDS, TimeUnit.SECONDS);
@@ -58,7 +58,7 @@ public class LoginRateLimiter {
 
         if (count != null && count >= MAX_FAILURES) {
             redisTemplate.opsForValue().set(
-                    LOCK_KEY_PREFIX + username,
+                    LOCK_KEY_PREFIX + userAccount,
                     "1",
                     LOCK_DURATION_SECONDS, TimeUnit.SECONDS);
             return true;
@@ -69,23 +69,23 @@ public class LoginRateLimiter {
     /**
      * 检查账号是否被锁定
      */
-    public boolean isLocked(String username) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(LOCK_KEY_PREFIX + username));
+    public boolean isLocked(String userAccount) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(LOCK_KEY_PREFIX + userAccount));
     }
 
     /**
      * 登录成功后清除失败记录
      */
-    public void clear(String username) {
-        redisTemplate.delete(FAIL_KEY_PREFIX + username);
-        redisTemplate.delete(LOCK_KEY_PREFIX + username);
+    public void clear(String userAccount) {
+        redisTemplate.delete(FAIL_KEY_PREFIX + userAccount);
+        redisTemplate.delete(LOCK_KEY_PREFIX + userAccount);
     }
 
     /**
      * 获取剩余锁定秒数
      */
-    public long lockLeftSeconds(String username) {
-        Long ttl = redisTemplate.getExpire(LOCK_KEY_PREFIX + username, TimeUnit.SECONDS);
+    public long lockLeftSeconds(String userAccount) {
+        Long ttl = redisTemplate.getExpire(LOCK_KEY_PREFIX + userAccount, TimeUnit.SECONDS);
         return ttl == null || ttl < 0 ? 0 : ttl;
     }
 }

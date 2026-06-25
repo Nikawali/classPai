@@ -34,7 +34,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse login(LoginRequest request, String clientIp) {
         String account = request.getUserAccount().trim();
-        System.out.println(account);
 
         // ---------- 1. IP 限流 ----------
         if (!rateLimiter.tryAcquireIP(clientIp)) {
