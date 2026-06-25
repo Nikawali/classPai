@@ -24,8 +24,8 @@ public class AuthServiceImpl implements AuthService {
     private final LoginRateLimiter rateLimiter;
 
     public AuthServiceImpl(UserMapper userMapper,
-                           TokenService tokenService,
-                           LoginRateLimiter rateLimiter) {
+            TokenService tokenService,
+            LoginRateLimiter rateLimiter) {
         this.userMapper = userMapper;
         this.tokenService = tokenService;
         this.rateLimiter = rateLimiter;
@@ -77,34 +77,13 @@ public class AuthServiceImpl implements AuthService {
         return userInfo;
     }
 
-    @Override
-    public LoginResponse getProfile(String token) {
-        LoginResponse tokenInfo = tokenService.validateToken(token);
-        if (tokenInfo == null) {
-            throw new BusinessException(401, "未登录或Token已过期");
-        }
-        User user = userMapper.selectById(tokenInfo.getUserId());
-        if (user == null) {
-            throw new BusinessException(404, "用户不存在");
-        }
-        LoginResponse profile = new LoginResponse();
-        profile.setUserId(user.getUserId());
-        profile.setUserName(user.getUserName());
-        profile.setRole(user.getRole());
-        profile.setPhone(user.getPhone());
-        profile.setCreateTime(user.getCreateTime());
-        profile.setSchool(user.getSchool());
-        profile.setCollege(user.getCollege());
-        profile.setMajor(user.getMajor());
-        return profile;
-    }
-
     /** 按手机号或 userId 查询用户 */
     private User queryByPhoneOrId(String account) {
         // 优先按手机号查
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>().eq(User::getPhone, account));
-        if (user != null) return user;
+        if (user != null)
+            return user;
 
         // 尝试按 userId 查
         try {
