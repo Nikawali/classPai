@@ -56,7 +56,7 @@
             <div class="phone-row">
               <input v-model="editForm.phone" type="tel" class="input flex-input" maxlength="11"
                 :class="{ 'input-err': editErrors.phone }"
-                placeholder="请输入新手机号"
+                :placeholder="user.phone || '未绑定'"
                 @input="editErrors.phone = ''" />
               <button type="button" class="btn-code"
                 :disabled="codeCd > 0 || !editForm.phone"
@@ -203,6 +203,7 @@ onMounted(async () => {
     if (!token) { emit('logout'); return }
     const res = await api.getProfile(token)
     user.value = res.data
+    editForm.phone = res.data.phone || ''
     authForm.school = res.data.school || ''
     authForm.college = res.data.college || ''
     authForm.major = res.data.major || ''
@@ -273,18 +274,15 @@ function validateEditForm() {
     valid = false
   }
 
-  // 验证码（如果要改手机号）
-  if (editForm.phone && editForm.phone !== user.value.phone) {
+  // 手机号或密码任一变更都需要验证码
+  if ((editForm.phone && editForm.phone !== user.value.phone) || editForm.password) {
     if (!editForm.smsCode) {
-      editErrors.smsCode = '请输入短信验证码'
+      editErrors.smsCode = '修改手机号或密码需要输入验证码'
       valid = false
     } else if (!/^\d{6}$/.test(editForm.smsCode)) {
       editErrors.smsCode = '验证码为6位数字'
       valid = false
     }
-  } else if (editForm.phone && !editForm.smsCode) {
-    editErrors.smsCode = '请输入短信验证码'
-    valid = false
   }
 
   // 密码
