@@ -56,7 +56,7 @@
             <div class="phone-row">
               <input v-model="editForm.phone" type="tel" class="input flex-input" maxlength="11"
                 :class="{ 'input-err': editErrors.phone }"
-                placeholder="请输入新手机号"
+                :placeholder="user.phone || '未绑定'"
                 @input="editErrors.phone = ''" />
               <button type="button" class="btn-code"
                 :disabled="codeCd > 0 || !editForm.phone"
@@ -82,10 +82,10 @@
             <label>新密码</label>
             <input v-model="editForm.password" type="password" class="input" maxlength="20"
               :class="{ 'input-err': editErrors.password }"
-              placeholder="≥8位，含字母和数字"
+              placeholder="≥6位"
               @input="editErrors.password = ''" />
             <span v-if="editErrors.password" class="field-err">{{ editErrors.password }}</span>
-            <span v-else class="field-hint">≥8位，必须包含字母和数字</span>
+            <span v-else class="field-hint">≥6位</span>
           </div>
 
           <!-- 确认密码 -->
@@ -203,10 +203,10 @@ onMounted(async () => {
     if (!token) { emit('logout'); return }
     const res = await api.getProfile(token)
     user.value = res.data
-    // TODO: 扩展后端接口返回 school / college / major 字段
-    authForm.school = ''
-    authForm.college = ''
-    authForm.major = ''
+    editForm.phone = res.data.phone || ''
+    authForm.school = res.data.school || ''
+    authForm.college = res.data.college || ''
+    authForm.major = res.data.major || ''
   } catch (e) {
     console.error('获取用户信息失败:', e.message)
   }
@@ -239,24 +239,30 @@ const editOk = ref(false)
 const codeCd = ref(0)
 let codeTimer = null
 
-function sendSmsForEdit() {
+async function sendSmsForEdit() {
   if (!/^1\d{10}$/.test(editForm.phone)) {
     editErrors.phone = '请输入正确的11位手机号'
     return
   }
   editErrors.phone = ''
 
-  // TODO: 调用后端发送验证码接口
-  // await api.sendCode(editForm.phone, 'edit-profile')
-  alert('模拟验证码已发送到 ' + editForm.phone)
-  codeCd.value = 60
-  codeTimer = setInterval(() => {
-    codeCd.value--
-    if (codeCd.value <= 0) {
-      clearInterval(codeTimer)
-      codeTimer = null
-    }
-  }, 1000)
+  try {
+    const { api } = await import('../api/request.js')
+    const token = sessionStorage.getItem('token')
+    const res = await api.sendCodeForProfile(token, editForm.phone)
+    editOk.value = true
+    editMsg.value = '验证码已发送（演示：' + res.data + '）'
+    codeCd.value = 60
+    codeTimer = setInterval(() => {
+      codeCd.value--
+      if (codeCd.value <= 0) {
+        clearInterval(codeTimer)
+        codeTimer = null
+      }
+    }, 1000)
+  } catch (e) {
+    editErrors.phone = e.message || '验证码发送失败'
+  }
 }
 
 function validateEditForm() {
@@ -268,27 +274,21 @@ function validateEditForm() {
     valid = false
   }
 
-  // 验证码（如果要改手机号）
-  if (editForm.phone && editForm.phone !== user.value.phone) {
+  // 手机号或密码任一变更都需要验证码
+  if ((editForm.phone && editForm.phone !== user.value.phone) || editForm.password) {
     if (!editForm.smsCode) {
-      editErrors.smsCode = '请输入短信验证码'
+      editErrors.smsCode = '修改手机号或密码需要输入验证码'
       valid = false
     } else if (!/^\d{6}$/.test(editForm.smsCode)) {
       editErrors.smsCode = '验证码为6位数字'
       valid = false
     }
-  } else if (editForm.phone && !editForm.smsCode) {
-    editErrors.smsCode = '请输入短信验证码'
-    valid = false
   }
 
   // 密码
   if (editForm.password) {
-    if (editForm.password.length < 8) {
-      editErrors.password = '密码长度不能少于8位'
-      valid = false
-    } else if (!/[a-zA-Z]/.test(editForm.password) || !/\d/.test(editForm.password)) {
-      editErrors.password = '密码必须同时包含字母和数字'
+    if (editForm.password.length < 6) {
+      editErrors.password = '密码至少6位'
       valid = false
     }
 
@@ -319,25 +319,19 @@ async function handleEditSubmit() {
 
   editSubmitting.value = true
   try {
-    /* ==============================================
-     * TODO: 调用后端接口更新手机号/密码
-     * 接口：POST /api/user/profile
-     * 请求体：{
-     *   phone: editForm.phone,        // 新手机号
-     *   smsCode: editForm.smsCode,    // 短信验证码
-     *   password: editForm.password,  // 新密码
-     *   confirmPwd: editForm.confirmPwd
-     * }
-     * Header: Authorization: Bearer <token>
-     * ============================================== */
-    // const { api } = await import('../api/request.js')
-    // const token = sessionStorage.getItem('token')
-    // await api.updateProfile(token, { ... })
+    const { api } = await import('../api/request.js')
+    const token = sessionStorage.getItem('token')
+    const body = {
+      phone: editForm.phone || undefined,
+      password: editForm.password || undefined,
+      smsCode: editForm.smsCode || undefined
+    }
+    await api.updateProfile(token, body)
 
-    await new Promise(r => setTimeout(r, 600))
     editOk.value = true
     editMsg.value = '信息修改成功'
     if (editForm.phone) user.value.phone = editForm.phone
+    editForm.phone = ''
     editForm.password = ''
     editForm.confirmPwd = ''
     editForm.smsCode = ''
@@ -390,20 +384,13 @@ async function handleAuthSubmit() {
 
   authSubmitting.value = true
   try {
-    /* ==============================================
-     * TODO: 调用后端接口更新实名认证信息
-     * 接口：POST /api/user/auth-info
-     * 请求体：{
-     *   college: authForm.college,
-     *   major: authForm.major
-     * }
-     * Header: Authorization: Bearer <token>
-     * ============================================== */
-    // const { api } = await import('../api/request.js')
-    // const token = sessionStorage.getItem('token')
-    // await api.updateAuthInfo(token, { ... })
+    const { api } = await import('../api/request.js')
+    const token = sessionStorage.getItem('token')
+    await api.updateProfile(token, {
+      college: authForm.college || undefined,
+      major: authForm.major || undefined
+    })
 
-    await new Promise(r => setTimeout(r, 600))
     authOk.value = true
     authMsg.value = '认证信息更新成功'
   } catch (e) {

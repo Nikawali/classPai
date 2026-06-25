@@ -90,5 +90,27 @@ export const api = {
   /** 搜索课程 */
   searchCourses(keyword) {
     return request(`/classroom/search?keyword=${encodeURIComponent(keyword)}`)
+  },
+
+  // ========== 个人信息修改 ==========
+  /** 发送验证码（修改个人信息） */
+  sendCodeForProfile(token, phone) {
+    return request(`/user/send-code-profile?phone=${phone}`, {
+      headers: {
+        'Authorization': 'Bearer ' + token
+      }
+    })
+  },
+
+  /** 修改个人信息（手机号/密码/学院/专业） */
+  updateProfile(token, body) {
+    return request('/user/profile', {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    })
   }
 }
