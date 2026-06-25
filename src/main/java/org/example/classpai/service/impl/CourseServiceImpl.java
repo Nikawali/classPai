@@ -1,11 +1,11 @@
 package org.example.classpai.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import org.example.classpai.common.PageResult;
 import org.example.classpai.common.Result;
 import org.example.classpai.common.exception.BusinessException;
 import org.example.classpai.dto.CourseDTO;
+import org.example.classpai.dto.CourseGroupDTO;
+import org.example.classpai.dto.UserAllCoursesDTO;
 import org.example.classpai.entity.*;
 import org.example.classpai.mapper.*;
 import org.example.classpai.service.CourseService;
@@ -13,8 +13,8 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Random;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +30,79 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
+    public Result<UserAllCoursesDTO> getAllCourses(User user) {
+        // 1. 获取该用户的所有课程关联
+        List<UserCourse> allUc = userCourseMapper.selectList(
+                new LambdaQueryWrapper<UserCourse>().eq(UserCourse::getUserId, user.getUserId()));
+
+        if (allUc.isEmpty()) {
+            UserAllCoursesDTO empty = new UserAllCoursesDTO();
+            empty.setPinnedCourses(List.of());
+            empty.setGroups(List.of());
+            return Result.success(empty);
+        }
+
+        // courseId → UserCourse 映射
+        Map<Long, UserCourse> ucMap = allUc.stream()
+                .collect(Collectors.toMap(UserCourse::getCourseId, uc -> uc, (a, b) -> a));
+
+        // 2. 获取所有关联的课程
+        List<Long> courseIds = new ArrayList<>(ucMap.keySet());
+        List<Course> courses = courseMapper.selectList(
+                new LambdaQueryWrapper<Course>().in(Course::getCourseId, courseIds));
+
+        // 3. 填充瞬态字段
+        Map<Long, Course> courseMap = new HashMap<>();
+        for (Course c : courses) {
+            UserCourse uc = ucMap.get(c.getCourseId());
+            c.setUserRole(uc.getRole());
+            c.setPinned(Boolean.TRUE.equals(uc.getPinned()));
+            c.setSortOrder(uc.getSortOrder());
+            courseMap.put(c.getCourseId(), c);
+        }
+
+        // 4. 批量填充学生人数（一次 GROUP BY 查询，避免 N+1）
+        Map<Long, Integer> studentCountMap = new HashMap<>();
+        if (!courseIds.isEmpty()) {
+            studentCountMap = userCourseMapper.countStudentsByCourseIds(courseIds).stream()
+                    .collect(Collectors.toMap(
+                            m -> ((Number) m.get("course_id")).longValue(),
+                            m -> ((Number) m.get("total")).intValue()));
+        }
+        for (Course c : courses) {
+            c.setStudentCount(studentCountMap.getOrDefault(c.getCourseId(), 0));
+        }
+
+        // 5. 提取置顶课程（按 sortOrder 排序）
+        List<Course> pinnedCourses = courses.stream()
+                .filter(c -> Boolean.TRUE.equals(c.getPinned()))
+                .sorted(Comparator.comparing(Course::getSortOrder, Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.toList());
+
+        // 6. 按学年学期分组
+        Map<String, List<Course>> groupMap = new LinkedHashMap<>();
+        for (Course c : courses) {
+            String key = buildSemesterKey(c);
+            groupMap.computeIfAbsent(key, k -> new ArrayList<>()).add(c);
+        }
+
+        List<CourseGroupDTO> groups = groupMap.entrySet().stream()
+                .sorted((a, b) -> b.getKey().compareTo(a.getKey()))
+                .map(entry -> {
+                    CourseGroupDTO vo = new CourseGroupDTO();
+                    vo.setGroupName(entry.getKey());
+                    vo.setCourses(entry.getValue());
+                    return vo;
+                })
+                .collect(Collectors.toList());
+
+        UserAllCoursesDTO result = new UserAllCoursesDTO();
+        result.setPinnedCourses(pinnedCourses);
+        result.setGroups(groups);
+        return Result.success(result);
+    }
+
+    @Override
     @Transactional
     public Result<Course> createCourse(CourseDTO dto, User user) {
         Course course = new Course();
@@ -42,28 +115,10 @@ public class CourseServiceImpl implements CourseService {
         uc.setUserId(user.getUserId());
         uc.setCourseId(course.getCourseId());
         uc.setRole("teacher");
+        uc.setJoinTime(LocalDateTime.now());
         userCourseMapper.insert(uc);
 
         return Result.success(course);
-    }
-
-    @Override
-    public PageResult<Course> listMyCourses(User user, int page, int pageSize) {
-        LambdaQueryWrapper<UserCourse> ucWrapper = new LambdaQueryWrapper<>();
-        ucWrapper.eq(UserCourse::getUserId, user.getUserId())
-                 .eq(UserCourse::getRole, "teacher");
-        List<Long> courseIds = userCourseMapper.selectList(ucWrapper)
-                .stream().map(UserCourse::getCourseId).collect(Collectors.toList());
-
-        if (courseIds.isEmpty()) {
-            return PageResult.of(0, List.of(), page, pageSize);
-        }
-
-        Page<Course> p = courseMapper.selectPage(
-                new Page<>(page, pageSize),
-                new LambdaQueryWrapper<Course>().in(Course::getCourseId, courseIds)
-                        .orderByDesc(Course::getCreateTime));
-        return PageResult.of(p.getTotal(), p.getRecords(), p.getCurrent(), p.getSize());
     }
 
     @Override
@@ -89,28 +144,10 @@ public class CourseServiceImpl implements CourseService {
         uc.setUserId(user.getUserId());
         uc.setCourseId(course.getCourseId());
         uc.setRole("student");
+        uc.setJoinTime(LocalDateTime.now());
         userCourseMapper.insert(uc);
 
         return Result.success("加入成功");
-    }
-
-    @Override
-    public PageResult<Course> listJoinedCourses(User user, int page, int pageSize) {
-        LambdaQueryWrapper<UserCourse> ucWrapper = new LambdaQueryWrapper<>();
-        ucWrapper.eq(UserCourse::getUserId, user.getUserId())
-                 .eq(UserCourse::getRole, "student");
-        List<Long> courseIds = userCourseMapper.selectList(ucWrapper)
-                .stream().map(UserCourse::getCourseId).collect(Collectors.toList());
-
-        if (courseIds.isEmpty()) {
-            return PageResult.of(0, List.of(), page, pageSize);
-        }
-
-        Page<Course> p = courseMapper.selectPage(
-                new Page<>(page, pageSize),
-                new LambdaQueryWrapper<Course>().in(Course::getCourseId, courseIds)
-                        .orderByDesc(Course::getCreateTime));
-        return PageResult.of(p.getTotal(), p.getRecords(), p.getCurrent(), p.getSize());
     }
 
     @Override
@@ -133,6 +170,60 @@ public class CourseServiceImpl implements CourseService {
                 new LambdaQueryWrapper<UserCourse>()
                         .eq(UserCourse::getCourseId, courseId)
                         .eq(UserCourse::getUserId, userId)) > 0;
+    }
+
+    @Override
+    @Transactional
+    public Result<?> togglePin(Long courseId, User user) {
+        LambdaQueryWrapper<UserCourse> ucWrapper = new LambdaQueryWrapper<>();
+        ucWrapper.eq(UserCourse::getUserId, user.getUserId())
+                 .eq(UserCourse::getCourseId, courseId);
+        UserCourse uc = userCourseMapper.selectOne(ucWrapper);
+        if (uc == null) {
+            throw new BusinessException(404, "未加入该课程");
+        }
+
+        boolean newPinned = !Boolean.TRUE.equals(uc.getPinned());
+        uc.setPinned(newPinned);
+        if (newPinned) {
+            // 置顶时放到同用户已有置顶的最大 sortOrder + 1（即排最后）
+            Integer maxOrder = userCourseMapper.selectList(
+                    new LambdaQueryWrapper<UserCourse>()
+                            .select(UserCourse::getSortOrder)
+                            .eq(UserCourse::getUserId, user.getUserId())
+                            .eq(UserCourse::getPinned, true)
+                            .orderByDesc(UserCourse::getSortOrder)
+                            .last("LIMIT 1"))
+                    .stream().map(UserCourse::getSortOrder).findFirst().orElse(0);
+            uc.setSortOrder(maxOrder == null ? 1 : maxOrder + 1);
+        } else {
+            uc.setSortOrder(null);
+        }
+        userCourseMapper.updateById(uc);
+
+        return Result.success(newPinned ? "已置顶" : "已取消置顶");
+    }
+
+    @Override
+    @Transactional
+    public Result<?> updatePinnedOrder(List<Long> courseIds, User user) {
+        for (int i = 0; i < courseIds.size(); i++) {
+            LambdaQueryWrapper<UserCourse> ucWrapper = new LambdaQueryWrapper<>();
+            ucWrapper.eq(UserCourse::getUserId, user.getUserId())
+                     .eq(UserCourse::getCourseId, courseIds.get(i));
+            UserCourse uc = userCourseMapper.selectOne(ucWrapper);
+            if (uc != null) {
+                uc.setSortOrder(i + 1);
+                userCourseMapper.updateById(uc);
+            }
+        }
+        return Result.success();
+    }
+
+    /** 根据课程的 startDate/endDate/semester 构建分组键，如 "2025-2026第一学期" */
+    private String buildSemesterKey(Course c) {
+        String yearRange = c.getStartDate().getYear() + "-" + c.getEndDate().getYear();
+        return yearRange + c.getSemester();
     }
 
     /** 生成6位不重复选课码 */

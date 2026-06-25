@@ -1,9 +1,17 @@
 const BASE_URL = '/api'
 
+function getToken() {
+  return sessionStorage.getItem('token')
+}
+
 async function request(url, options = {}) {
+  const token = getToken()
   const config = {
     headers: { 'Content-Type': 'application/json' },
     ...options
+  }
+  if (token) {
+    config.headers['Authorization'] = 'Bearer ' + token
   }
   const res = await fetch(BASE_URL + url, config)
   const data = await res.json()
@@ -60,40 +68,43 @@ export const api = {
     return request('/school/list')
   },
 
-  // ========== 课堂 ==========
-  /** 置顶课程 */
-  getTopCourses() {
-    return request('/classroom/top')
-  },
-  /** 我学的课程（按学期） */
-  getMyLearningCourses(semester) {
-    return request(`/classroom/my-learning?semester=${encodeURIComponent(semester)}`)
-  },
-  /** 我协助的课程（按学期） */
-  getMyAssistingCourses(semester) {
-    return request(`/classroom/my-assisting?semester=${encodeURIComponent(semester)}`)
-  },
-  /** 加入课程 */
-  joinCourse(code) {
-    return request('/classroom/join', {
-      method: 'POST',
-      body: JSON.stringify({ code })
-    })
-  },
-  /** 创建课程（教师） */
+  // ========== 课程 ==========
   createCourse(body) {
-    return request('/classroom/create', {
+    return request('/course', {
       method: 'POST',
       body: JSON.stringify(body)
     })
   },
-  /** 搜索课程 */
+  joinCourse(courseCode) {
+    return request(`/course/join?courseCode=${encodeURIComponent(courseCode)}`, {
+      method: 'POST'
+    })
+  },
+
+  // ========== 课程数据（一次获取全部） ==========
+  getAllCourses() {
+    return request('/course/all')
+  },
+
+  // ========== 置顶 ==========
+  togglePin(courseId) {
+    return request(`/course/${courseId}/pin`, {
+      method: 'POST'
+    })
+  },
+  updatePinnedOrder(courseIds) {
+    return request('/course/pinned/order', {
+      method: 'PUT',
+      body: JSON.stringify(courseIds)
+    })
+  },
+
+  // ========== 搜索 ==========
   searchCourses(keyword) {
-    return request(`/classroom/search?keyword=${encodeURIComponent(keyword)}`)
+    return request(`/course/search?keyword=${encodeURIComponent(keyword)}`)
   },
 
   // ========== 个人信息修改 ==========
-  /** 发送验证码（修改个人信息） */
   sendCodeForProfile(token, phone) {
     return request(`/user/send-code-profile?phone=${phone}`, {
       headers: {
@@ -101,8 +112,6 @@ export const api = {
       }
     })
   },
-
-  /** 修改个人信息（手机号/密码/学院/专业） */
   updateProfile(token, body) {
     return request('/user/profile', {
       method: 'PUT',

@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @Data
 @TableName("user_course")
 public class UserCourse {
-    @TableId(type = IdType.AUTO)
+    @TableId(value = "id", type = IdType.AUTO)
     private Long csId;
 
     private Long userId;
@@ -19,8 +19,15 @@ public class UserCourse {
     /** 在该课程中的角色：teacher / student */
     private String role;
 
+    @TableField(exist = false)
     private BigDecimal score;
 
+    /** 是否置顶 */
+    private Boolean pinned;
+
+    /** 置顶排序（越小越靠前） */
+    private Integer sortOrder;
+
     @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime selectTime;
+    private LocalDateTime joinTime;
 }

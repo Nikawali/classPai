@@ -2,12 +2,13 @@ package org.example.classpai.dto;
 
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Data
 public class CourseDTO {
     private String courseName;
     private String courseIntro;
-    private LocalDateTime startDate;
-    private LocalDateTime endDate;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private String semester;
 }

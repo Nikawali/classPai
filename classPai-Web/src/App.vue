@@ -12,7 +12,7 @@ import Login from './views/Login.vue'
 import Register from './views/Register.vue'
 import Main from './views/Main.vue'
 
-const page = ref('login')
+const page = ref(sessionStorage.getItem('token') ? 'main' : 'login')
 
 function handleLogout() {
   page.value = 'login'

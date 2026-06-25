@@ -1,13 +1,15 @@
 package org.example.classpai.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.example.classpai.common.PageResult;
 import org.example.classpai.common.Result;
 import org.example.classpai.dto.CourseDTO;
+import org.example.classpai.dto.UserAllCoursesDTO;
 import org.example.classpai.entity.Course;
 import org.example.classpai.entity.User;
 import org.example.classpai.service.CourseService;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/course")
@@ -26,15 +28,6 @@ public class CourseController {
         return courseService.createCourse(dto, user);
     }
 
-    /** 我的课程（教师） */
-    @GetMapping("/my")
-    public PageResult<Course> myCourses(@RequestParam(defaultValue = "1") int page,
-                                         @RequestParam(defaultValue = "10") int pageSize,
-                                         HttpServletRequest request) {
-        User user = (User) request.getAttribute("currentUser");
-        return courseService.listMyCourses(user, page, pageSize);
-    }
-
     /** 通过选课码加入课程（学生/教师均可用） */
     @PostMapping("/join")
     public Result<?> join(@RequestParam String courseCode, HttpServletRequest request) {
@@ -42,19 +35,31 @@ public class CourseController {
         return courseService.joinCourse(courseCode, user);
     }
 
-    /** 已加入的课程（学生） */
-    @GetMapping("/joined")
-    public PageResult<Course> joinedCourses(@RequestParam(defaultValue = "1") int page,
-                                             @RequestParam(defaultValue = "10") int pageSize,
-                                             HttpServletRequest request) {
-        User user = (User) request.getAttribute("currentUser");
-        return courseService.listJoinedCourses(user, page, pageSize);
-    }
-
     /** 课程详情（仅课程成员可查看） */
     @GetMapping("/{courseId}")
     public Result<Course> detail(@PathVariable Long courseId, HttpServletRequest request) {
         User user = (User) request.getAttribute("currentUser");
         return courseService.getCourseDetail(courseId, user);
+    }
+
+    /** 切换置顶 */
+    @PostMapping("/{courseId}/pin")
+    public Result<?> togglePin(@PathVariable Long courseId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return courseService.togglePin(courseId, user);
+    }
+
+    /** 更新置顶排序 */
+    @PutMapping("/pinned/order")
+    public Result<?> updatePinnedOrder(@RequestBody List<Long> courseIds, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return courseService.updatePinnedOrder(courseIds, user);
+    }
+
+    /** 一次性获取所有课程数据（置顶 + 分组，含角色/置顶/人数信息） */
+    @GetMapping("/all")
+    public Result<UserAllCoursesDTO> allCourses(HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return courseService.getAllCourses(user);
     }
 }

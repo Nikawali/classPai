@@ -14,7 +14,6 @@ public class Course {
 
     private String courseName;
 
-    /** 选课码，学生通过此码加入，需手动 ALTER TABLE 添加此列 */
     private String courseCode;
 
     private String courseIntro;
@@ -23,6 +22,24 @@ public class Course {
 
     private LocalDate endDate;
 
+    private String semester;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
+
+    /** 学生人数（非数据库字段，查询时临时填充） */
+    @TableField(exist = false)
+    private Integer studentCount;
+
+    /** 当前用户在该课程中的角色（非数据库字段，查询时临时填充） */
+    @TableField(exist = false)
+    private String userRole;
+
+    /** 当前用户是否置顶该课程 */
+    @TableField(exist = false)
+    private Boolean pinned;
+
+    /** 当前用户的置顶排序 */
+    @TableField(exist = false)
+    private Integer sortOrder;
 }

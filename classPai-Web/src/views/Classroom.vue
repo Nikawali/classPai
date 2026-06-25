@@ -1,6 +1,6 @@
 <template>
   <div class="classroom-page">
-    <!-- ==================== 置顶课程区 ==================== -->
+    <!-- ==================== 置顶课程区（拖动排序） ==================== -->
     <div class="top-section">
       <div class="top-header">
         <h2 class="top-title">置顶课程</h2>
@@ -12,7 +12,6 @@
             </svg>
             加入/创建课程
           </button>
-          <!-- 下拉菜单 -->
           <div v-if="showActionSheet" class="action-sheet">
             <button class="action-sheet-item" @click="showJoinDialog = true; showActionSheet = false">
               <svg viewBox="0 0 24 24" width="18" height="18">
@@ -33,58 +32,87 @@
         </div>
       </div>
 
-      <!-- 横向滚动卡片（后端填充） -->
-      <div class="top-cards-scroll">
+      <!-- 横向滚动卡片（支持拖动排序） -->
+      <div
+        ref="scrollContainer"
+        class="top-cards-scroll"
+        @dragover.prevent
+        @drop.prevent="onDrop"
+        @scroll="onCardsScroll"
+      >
         <div
-          v-for="course in topCourses"
-          :key="course.id"
+          v-for="(course, idx) in pinnedCourses"
+          :key="course.courseId"
           class="top-card"
+          :class="{ 'dragging': dragIndex === idx, 'drag-over': dragOverIndex === idx }"
+          draggable="true"
+          @dragstart="onDragStart(idx, $event)"
+          @dragenter.prevent="onDragEnter(idx)"
+          @dragover.prevent
+          @dragend="onDragEnd"
           @click="enterCourse(course)"
         >
-          <span class="top-card-tag">{{ isTeacher ? '教' : '学' }}</span>
-          <div class="top-card-cover" :style="{ background: course.coverColor }"></div>
+          <span class="top-card-tag">{{ course.userRole === 'teacher' ? '教' : '学' }}</span>
+          <!-- 3 点菜单按钮 -->
+          <button class="top-card-menu-btn" title="更多" @click.stop="openCardMenu(course)">
+            <svg viewBox="0 0 24 24" width="14" height="14">
+              <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
+              <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+              <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
+            </svg>
+          </button>
+          <div class="top-card-cover" :style="{ background: coverColor(course.courseId) }">
+            <span class="top-card-cover-text">{{ course.courseName.charAt(0) }}</span>
+          </div>
           <div class="top-card-body">
-            <span class="top-card-code">{{ course.inviteCode }}</span>
+            <span class="top-card-code">{{ course.courseCode }}</span>
             <p class="top-card-name">{{ course.courseName }}</p>
-            <p class="top-card-class">{{ course.className }}</p>
+            <p class="top-card-intro">{{ course.courseIntro }}</p>
           </div>
         </div>
 
-        <div v-if="topCourses.length === 0" class="top-empty">
-          <p>暂无置顶课程，点击右上角加入/创建课程</p>
+        <div v-if="pinnedCourses.length === 0" class="top-empty">
+          <p>暂无置顶课程，点课程右侧菜单置顶</p>
         </div>
+      </div>
+
+      <!-- 自定义滚动条 -->
+      <div
+        v-if="pinnedCourses.length > 0 && scrollRatio < 1"
+        ref="scrollbarTrack"
+        class="custom-scrollbar"
+        :class="{ active: isDraggingScrollbar }"
+        @mousedown.prevent="onTrackDown"
+        @touchstart.prevent="onTrackDown"
+      >
+        <div
+          class="custom-scrollbar-thumb"
+          :style="{ left: scrollLeftPercent + '%', width: scrollThumbWidth + '%' }"
+          @mousedown.stop.prevent="onThumbDown"
+          @touchstart.stop.prevent="onThumbDown"
+        ></div>
       </div>
     </div>
 
     <!-- ==================== 切换栏 ==================== -->
     <div class="tab-bar">
-      <div v-if="isTeacher" class="tab-tabs">
-        <span class="tab-btn active">我的课程</span>
-      </div>
-      <div v-else class="tab-tabs">
+      <div class="tab-tabs">
         <button
           class="tab-btn"
-          :class="{ active: activeTab === 'learning' }"
-          @click="activeTab = 'learning'"
+          :class="{ active: activeTab === 'student' }"
+          @click="switchTab('student')"
         >我学的</button>
         <button
           class="tab-btn"
-          :class="{ active: activeTab === 'assisting' }"
-          @click="activeTab = 'assisting'"
-        >我协助的</button>
+          :class="{ active: activeTab === 'teacher' }"
+          @click="switchTab('teacher')"
+        >我教的</button>
       </div>
       <div class="tab-actions">
         <button class="tab-icon-btn" @click="showSearch = !showSearch">
           <svg viewBox="0 0 24 24" width="18" height="18">
             <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
             <line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </button>
-        <button class="tab-icon-btn">
-          <svg viewBox="0 0 24 24" width="18" height="18">
-            <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
-            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-            <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
           </svg>
         </button>
       </div>
@@ -105,56 +133,56 @@
       />
     </div>
 
-    <!-- ==================== 学期折叠列表（后端填充） ==================== -->
-    <div class="semester-list">
+    <!-- ==================== 学年学期分组列表 ==================== -->
+    <div v-if="groupedCourses.length === 0" class="course-empty">
+      <p>{{ activeTab === 'student' ? '暂无学习的课程' : '暂无教学的课程' }}</p>
+    </div>
+
+    <div v-else class="group-list">
       <div
-        v-for="semester in semesterData"
-        :key="semester.name"
-        class="semester-group"
+        v-for="group in groupedCourses"
+        :key="group.groupName"
+        class="group-item"
       >
-        <div class="semester-header" @click="toggleSemester(semester.name)">
+        <div class="group-header" @click="toggleGroup(group.groupName)">
           <svg
-            class="semester-arrow"
-            :class="{ expanded: semester.expanded }"
+            class="group-arrow"
+            :class="{ expanded: expandedGroups.has(group.groupName) }"
             viewBox="0 0 24 24" width="16" height="16"
           >
             <path d="M8 6l8 6-8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          <span class="semester-name">{{ semester.name }}</span>
-          <span class="semester-count">{{ semester.courses.length }}门课程</span>
+          <span class="group-name">{{ group.groupName }}</span>
+          <span class="group-count">{{ group.courses.length }}门课程</span>
         </div>
 
-        <div v-show="semester.expanded" class="semester-courses">
-          <div
-            v-for="course in semester.courses"
-            :key="course.id"
-            class="course-item"
-            @click="enterCourse(course)"
-          >
-            <div class="course-thumb" :style="{ background: course.coverColor }">
-              <span class="course-thumb-text">{{ course.courseName.charAt(0) }}</span>
+        <transition name="group-slide">
+          <div v-show="expandedGroups.has(group.groupName)" class="group-courses">
+            <div
+              v-for="course in group.courses"
+              :key="course.courseId"
+              class="group-course-card"
+              @click="enterCourse(course)"
+            >
+              <span class="group-card-tag">{{ activeTab === 'teacher' ? '教' : '学' }}</span>
+              <div class="group-card-cover" :style="{ background: coverColor(course.courseId) }">
+                <span class="group-card-cover-text">{{ course.courseName.charAt(0) }}</span>
+              </div>
+              <div class="group-card-body">
+                <p class="group-card-name">{{ course.courseName }}</p>
+                <p class="group-card-intro">{{ course.courseIntro }}</p>
+                <p class="group-card-meta">{{ course.studentCount || 0 }} 名学生</p>
+              </div>
+              <button class="group-card-menu" title="更多" @click.stop="openCardMenu(course)">
+                <svg viewBox="0 0 24 24" width="14" height="14">
+                  <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
+                  <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                  <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
+                </svg>
+              </button>
             </div>
-            <div class="course-info">
-              <p class="course-name">{{ course.courseName }}</p>
-              <p class="course-meta">
-                <span>{{ course.className }}</span>
-                <span class="meta-sep">·</span>
-                <span>{{ course.studentCount }}人</span>
-              </p>
-            </div>
-            <button class="course-menu-btn" @click.stop="handleCourseMenu(course)">
-              <svg viewBox="0 0 24 24" width="18" height="18">
-                <circle cx="12" cy="5" r="1.5" fill="#999"/>
-                <circle cx="12" cy="12" r="1.5" fill="#999"/>
-                <circle cx="12" cy="19" r="1.5" fill="#999"/>
-              </svg>
-            </button>
           </div>
-
-          <div v-if="semester.courses.length === 0" class="course-empty">
-            <p>暂无课程</p>
-          </div>
-        </div>
+        </transition>
       </div>
     </div>
 
@@ -173,65 +201,286 @@
       </div>
     </div>
 
-    <!-- ==================== 创建课程弹窗 ==================== -->
-    <div v-if="showCreateDialog" class="dialog-overlay" @click.self="showCreateDialog = false">
-      <div class="dialog-card">
-        <h3 class="dialog-title">创建课程</h3>
-        <p class="dialog-desc">填写课程基本信息</p>
-        <input v-model="createForm.courseName" type="text" placeholder="课程名称"
-          class="dialog-input" style="margin-bottom:10px" />
-        <input v-model="createForm.className" type="text" placeholder="班级名称（选填）"
-          class="dialog-input" />
-        <div class="dialog-actions">
-          <button class="dialog-btn-cancel" @click="showCreateDialog = false">取消</button>
-          <button class="dialog-btn-confirm" @click="handleCreateCourse" :disabled="!createForm.courseName.trim()">创建</button>
+    <!-- ==================== 创建课程全屏页 ==================== -->
+    <CourseCreate
+      v-if="showCreateDialog"
+      @back="showCreateDialog = false"
+      @created="onCourseCreated"
+    />
+
+    <!-- ==================== 底部操作面板 ==================== -->
+    <div v-if="bottomSheet.course" class="sheet-overlay" @click.self="closeBottomSheet">
+      <div class="sheet-panel">
+        <div class="sheet-header">
+          <p class="sheet-course-name">{{ bottomSheet.course.courseName }}</p>
+          <p class="sheet-course-code">{{ bottomSheet.course.courseCode }}</p>
         </div>
-        <p v-if="createError" class="dialog-error">{{ createError }}</p>
+        <div class="sheet-actions">
+          <button class="sheet-action-item" @click="handleSheetAction('quit')">退课</button>
+          <button class="sheet-action-item" @click="handleSheetAction('archive')">归档</button>
+          <button class="sheet-action-item" @click="handleSheetAction('pin')">{{ isSheetCoursePinned ? '取消置顶' : '置顶' }}</button>
+        </div>
+        <button class="sheet-cancel-btn" @click="closeBottomSheet">取消</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { api } from '../api/request.js'
-
-// ==================== 角色 ====================
-const userRole = ref(sessionStorage.getItem('role') || 'STUDENT')
-const isTeacher = computed(() => userRole.value === 'TEACHER')
+import CourseCreate from './CourseCreate.vue'
 
 // ==================== 状态 ====================
-const activeTab = ref('learning')
+const activeTab = ref('student')
 const showSearch = ref(false)
 const searchKeyword = ref('')
-const topCourses = ref([])
-const semesterData = ref([])
+const pinnedCourses = ref([])
+
+// 分组课程（全量数据 + 按标签页过滤）
+const allGroupsData = ref([])
+const expandedGroups = ref(new Set())
+const groupedCourses = computed(() => {
+  const targetRole = activeTab.value === 'teacher' ? 'teacher' : 'student'
+  return allGroupsData.value
+    .map(g => ({
+      groupName: g.groupName,
+      courses: (g.courses || []).filter(c => c.userRole === targetRole)
+    }))
+    .filter(g => g.courses.length > 0)
+})
+
+// 拖动排序状态
+const dragIndex = ref(-1)
+const dragOverIndex = ref(-1)
+const dragged = ref(false)
+
+// 自定义滚动条
+const scrollContainer = ref(null)
+const scrollbarTrack = ref(null)
+const scrollLeftPercent = ref(0)
+const scrollThumbWidth = ref(100)
+const scrollRatio = ref(1)
+const isDraggingScrollbar = ref(false)
+
+function updateScrollbar() {
+  const el = scrollContainer.value
+  if (!el) return
+  const w = el.scrollWidth - el.clientWidth
+  scrollRatio.value = el.clientWidth / el.scrollWidth
+  if (w <= 0) {
+    scrollLeftPercent.value = 0
+    scrollThumbWidth.value = 100
+  } else {
+    scrollLeftPercent.value = (el.scrollLeft / el.scrollWidth) * 100
+    scrollThumbWidth.value = Math.max(scrollRatio.value * 100, 8)
+  }
+}
+
+function onCardsScroll() {
+  updateScrollbar()
+}
+
+function onThumbDown(e) {
+  const el = scrollContainer.value
+  const track = scrollbarTrack.value
+  if (!el || !track) return
+
+  isDraggingScrollbar.value = true
+  const maxScroll = el.scrollWidth - el.clientWidth
+  const trackWidth = track.getBoundingClientRect().width
+  const startX = (e.touches ? e.touches[0].clientX : e.clientX)
+  const startScroll = el.scrollLeft
+
+  const move = (ev) => {
+    const dx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - startX
+    el.scrollLeft = Math.max(0, Math.min(maxScroll, startScroll + dx * maxScroll / trackWidth))
+  }
+  const up = () => {
+    isDraggingScrollbar.value = false
+    document.removeEventListener('mousemove', move)
+    document.removeEventListener('mouseup', up)
+    document.removeEventListener('touchmove', move)
+    document.removeEventListener('touchend', up)
+  }
+
+  document.addEventListener('mousemove', move)
+  document.addEventListener('mouseup', up)
+  document.addEventListener('touchmove', move, { passive: true })
+  document.addEventListener('touchend', up)
+}
+
+function onTrackDown(e) {
+  const el = scrollContainer.value
+  const track = scrollbarTrack.value
+  if (!el || !track) return
+
+  isDraggingScrollbar.value = true
+  const maxScroll = el.scrollWidth - el.clientWidth
+  const rect = track.getBoundingClientRect()
+
+  // 点击轨道 → 平滑滚到对应位置
+  const jumpTo = (x) => {
+    const ratio = Math.max(0, Math.min(1, x / rect.width))
+    el.scrollTo({ left: ratio * maxScroll, behavior: 'smooth' })
+  }
+
+  let rafId = 0
+  let targetX = 0
+  let dragging = false
+
+  const updateTarget = (ev) => {
+    dragging = true
+    targetX = (ev.touches ? ev.touches[0].clientX : ev.clientX) - rect.left
+  }
+
+  const tick = () => {
+    if (dragging) {
+      // 按住拖动 → 直接赋值
+      el.scrollLeft = Math.max(0, Math.min(maxScroll, (targetX / rect.width) * maxScroll))
+    }
+    rafId = requestAnimationFrame(tick)
+  }
+
+  const move = (ev) => updateTarget(ev)
+  const up = () => {
+    isDraggingScrollbar.value = false
+    cancelAnimationFrame(rafId)
+    document.removeEventListener('mousemove', move)
+    document.removeEventListener('mouseup', up)
+    document.removeEventListener('touchmove', move)
+    document.removeEventListener('touchend', up)
+  }
+
+  // 首次点击
+  jumpTo((e.touches ? e.touches[0].clientX : e.clientX) - rect.left)
+
+  document.addEventListener('mousemove', move)
+  document.addEventListener('mouseup', up)
+  document.addEventListener('touchmove', move, { passive: true })
+  document.addEventListener('touchend', up)
+  rafId = requestAnimationFrame(tick)
+}
 
 // 加入课程弹窗
 const showJoinDialog = ref(false)
 const joinCode = ref('')
 const joinError = ref('')
 
-// 创建课程弹窗
+// 创建课程
 const showCreateDialog = ref(false)
-const createForm = ref({ courseName: '', className: '' })
-const createError = ref('')
 
-// 加入/创建 下拉菜单
+// 加入/创建下拉菜单
 const showActionSheet = ref(false)
 
+// 底部操作面板
+const bottomSheet = ref({ course: null })
+
+// 当前打开的面板中课程的置顶状态
+const isSheetCoursePinned = computed(() => {
+  const id = bottomSheet.value.course?.courseId
+  return id ? pinnedCourseIds.value.has(id) : false
+})
+
+// 当前置顶课程 ID 集合（用于快速判断）
+const pinnedCourseIds = ref(new Set())
+
+function openCardMenu(course) {
+  bottomSheet.value = { course }
+}
+function closeBottomSheet() {
+  bottomSheet.value = { course: null }
+}
+function handleSheetAction(action) {
+  const name = bottomSheet.value.course?.courseName || ''
+  const id = bottomSheet.value.course?.courseId
+  closeBottomSheet()
+  if (action === 'pin' && id) {
+    handlePin(id)
+  } else if (action === 'quit') {
+    alert('退课功能开发中（课程：' + name + '）')
+  } else if (action === 'archive') {
+    alert('归档功能开发中（课程：' + name + '）')
+  }
+}
+
+// ==================== 颜色 ====================
+const coverColors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#fee140', '#30cfd0']
+function coverColor(id) {
+  return coverColors[id % coverColors.length]
+}
+
+// ==================== 拖动排序 ====================
+function onDragStart(idx, e) {
+  dragIndex.value = idx
+  dragged.value = true
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', idx)
+}
+
+function onDragEnter(idx) {
+  dragOverIndex.value = idx
+}
+
+function onDragEnd() {
+  dragIndex.value = -1
+  dragOverIndex.value = -1
+  // 拖动结束后短暂时间内忽略 click
+  setTimeout(() => { dragged.value = false }, 100)
+}
+
+function onDrop(e) {
+  const from = dragIndex.value
+  const to = dragOverIndex.value
+  if (from === -1 || to === -1 || from === to) {
+    onDragEnd()
+    return
+  }
+
+  const list = [...pinnedCourses.value]
+  const [moved] = list.splice(from, 1)
+  list.splice(to, 0, moved)
+  pinnedCourses.value = list
+
+  // 同步后端
+  const ids = list.map(c => c.courseId)
+  api.updatePinnedOrder(ids).catch(e => {
+    console.error('排序同步失败:', e)
+    loadAllCourses()
+  })
+
+  onDragEnd()
+}
+
+// ==================== 置顶/取消置顶 ====================
+async function handlePin(courseId) {
+  try {
+    await api.togglePin(courseId)
+    loadAllCourses()
+  } catch (e) {
+    console.error('置顶失败:', e)
+  }
+}
+
 // ==================== 方法 ====================
-function toggleSemester(name) {
-  const sem = semesterData.value.find(s => s.name === name)
-  if (sem) sem.expanded = !sem.expanded
+function switchTab(role) {
+  activeTab.value = role
+  expandedGroups.value = new Set()
+}
+
+function toggleGroup(name) {
+  const s = new Set(expandedGroups.value)
+  if (s.has(name)) {
+    s.delete(name)
+  } else {
+    s.add(name)
+  }
+  expandedGroups.value = s
 }
 
 function enterCourse(course) {
+  if (dragged.value) return
   // TODO：跳转到课程详情页
-}
-
-function handleCourseMenu(course) {
-  // TODO：弹出操作菜单
 }
 
 async function handleJoinCourse() {
@@ -241,63 +490,44 @@ async function handleJoinCourse() {
     await api.joinCourse(joinCode.value)
     showJoinDialog.value = false
     joinCode.value = ''
-    loadCourses()
+    loadAllCourses()
   } catch (e) {
     joinError.value = e.message
   }
 }
 
-async function handleCreateCourse() {
-  if (!createForm.value.courseName.trim()) return
-  createError.value = ''
-  try {
-    await api.createCourse({
-      courseName: createForm.value.courseName.trim(),
-      className: createForm.value.className.trim()
-    })
-    showCreateDialog.value = false
-    createForm.value = { courseName: '', className: '' }
-    loadCourses()
-  } catch (e) {
-    createError.value = e.message
-  }
+function onCourseCreated() {
+  showCreateDialog.value = false
+  loadAllCourses()
 }
 
 function handleSearch() {
   const kw = searchKeyword.value.trim()
   if (!kw) return
   api.searchCourses(kw).then(res => {
-    // TODO：展示搜索结果
-  }).catch(e => {
-    console.error('搜索失败:', e)
-  })
+    // TODO: 搜索后展示结果（后端接口待实现）
+    console.log('搜索结果:', res)
+  }).catch(e => console.error('搜索失败:', e))
 }
 
 // ==================== 数据加载 ====================
-async function loadCourses() {
+async function loadAllCourses() {
   try {
-    if (isTeacher.value) {
-      const [topRes, listRes] = await Promise.all([
-        api.getTopCourses(),
-        api.getMyAssistingCourses()
-      ])
-      topCourses.value = topRes.data || []
-      semesterData.value = listRes.data || []
-    } else {
-      const [topRes, listRes] = await Promise.all([
-        api.getTopCourses(),
-        api.getMyLearningCourses()
-      ])
-      topCourses.value = topRes.data || []
-      semesterData.value = listRes.data || []
-    }
+    const res = await api.getAllCourses()
+    const data = res.data || {}
+    pinnedCourses.value = data.pinnedCourses || []
+    pinnedCourseIds.value = new Set(pinnedCourses.value.map(c => c.courseId))
+    allGroupsData.value = data.groups || []
+    await nextTick()
+    updateScrollbar()
   } catch (e) {
-    console.error('加载课程失败:', e)
+    console.error('加载课程数据失败:', e)
   }
 }
 
 onMounted(() => {
-  loadCourses()
+  loadAllCourses()
+  window.addEventListener('resize', updateScrollbar)
 })
 </script>
 
@@ -310,11 +540,14 @@ onMounted(() => {
   padding: 20px 16px;
   min-height: 100%;
   background: #f5f6fa;
+  overflow: hidden;
 }
 
 /* ==================== 置顶课程区 ==================== */
 .top-section {
   margin-bottom: 24px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .top-header {
@@ -348,7 +581,6 @@ onMounted(() => {
 .btn-action:hover { opacity: .9; }
 .btn-action-icon { flex-shrink: 0; }
 
-/* 下拉菜单容器 */
 .btn-action-wrapper {
   position: relative;
 }
@@ -385,13 +617,56 @@ onMounted(() => {
 /* 横向滚动卡片 */
 .top-cards-scroll {
   display: flex;
+  flex-wrap: nowrap;
   gap: 12px;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 4px;
-  scroll-snap-type: x mandatory;
+  width: 100%;
   -webkit-overflow-scrolling: touch;
+  scroll-behavior: auto;
 }
 .top-cards-scroll::-webkit-scrollbar { display: none; }
+
+/* 自定义滚动条 */
+.custom-scrollbar {
+  height: 4px;
+  background: #e8e8e8;
+  border-radius: 2px;
+  margin-top: 12px;
+  cursor: pointer;
+  position: relative;
+  touch-action: none;
+  transition: height .25s cubic-bezier(.4, 0, .2, 1),
+              border-radius .25s cubic-bezier(.4, 0, .2, 1),
+              background .25s cubic-bezier(.4, 0, .2, 1);
+}
+
+.custom-scrollbar-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 100%;
+  background: #c8c8c8;
+  border-radius: 2px;
+  min-width: 32px;
+  transition: height .25s cubic-bezier(.4, 0, .2, 1),
+              background .25s cubic-bezier(.4, 0, .2, 1),
+              border-radius .25s cubic-bezier(.4, 0, .2, 1);
+  pointer-events: auto;
+}
+
+/* 按下拖动时变粗——按住不放就算移开也保持粗 */
+.custom-scrollbar.active {
+  height: 12px;
+  border-radius: 6px;
+  background: #e0e0e0;
+}
+.custom-scrollbar.active .custom-scrollbar-thumb {
+  height: 100%;
+  background: #888;
+  border-radius: 6px;
+}
 
 .top-card {
   flex-shrink: 0;
@@ -399,13 +674,24 @@ onMounted(() => {
   background: #fff;
   border-radius: 12px;
   overflow: hidden;
-  cursor: pointer;
-  scroll-snap-align: start;
+  cursor: grab;
   position: relative;
-  transition: box-shadow .15s;
+  transition: box-shadow .15s, transform .15s, opacity .15s;
+  user-select: none;
+  -webkit-user-select: none;
 }
+.top-card:active { cursor: grabbing; }
 .top-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
-.top-card:active { transform: scale(.98); }
+
+.top-card.dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+}
+
+.top-card.drag-over {
+  box-shadow: 0 0 0 2px #4a6cf7, 0 4px 16px rgba(74,108,247,.2);
+  transform: scale(1.03);
+}
 
 .top-card-tag {
   position: absolute;
@@ -420,9 +706,118 @@ onMounted(() => {
   z-index: 1;
 }
 
+.top-card-menu-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0,0,0,.35);
+  color: #fff;
+  cursor: pointer;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.top-card:hover .top-card-menu-btn {
+  opacity: 1;
+}
+
+/* 底部操作面板 */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: overlayIn .2s ease;
+}
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.sheet-panel {
+  width: 100%;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: 24px 20px 20px;
+  animation: slideUp .25s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.sheet-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.sheet-course-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+.sheet-course-code {
+  font-size: 12px;
+  color: #aaa;
+  letter-spacing: 1px;
+}
+
+.sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.sheet-action-item {
+  width: 100%;
+  height: 48px;
+  border: none;
+  border-radius: 10px;
+  background: #f5f6fa;
+  color: #333;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.sheet-action-item:hover { background: #eef0f5; }
+.sheet-action-item:active { background: #e5e7ec; }
+
+.sheet-cancel-btn {
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: #e8e8e8;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.sheet-cancel-btn:hover { background: #ddd; }
+
 .top-card-cover {
   width: 100%;
   height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.top-card-cover-text {
+  font-size: 32px;
+  font-weight: 700;
+  color: rgba(255,255,255,.7);
 }
 
 .top-card-body {
@@ -441,14 +836,14 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-bottom: 2px;
 }
-.top-card-class {
-  font-size: 12px;
-  color: #999;
+.top-card-intro {
+  font-size: 11px;
+  color: #aaa;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-top: 3px;
 }
 
 .top-empty {
@@ -494,62 +889,50 @@ onMounted(() => {
   box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
 
-.tab-actions {
-  display: flex;
-  gap: 6px;
-}
+.tab-actions { display: flex; gap: 6px; }
 
 .tab-icon-btn {
-  width: 34px;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 8px;
-  background: #fff;
-  color: #888;
-  cursor: pointer;
-  transition: color .15s;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 8px;
+  background: #fff; color: #888;
+  cursor: pointer; transition: color .15s;
 }
 .tab-icon-btn:hover { color: #4a6cf7; }
 
-/* 搜索栏 */
 .search-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  height: 40px;
-  background: #fff;
-  border-radius: 10px;
-  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 12px; height: 40px;
+  background: #fff; border-radius: 10px; margin-bottom: 16px;
 }
 .search-icon { flex-shrink: 0; color: #bbb; }
 .search-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 13px;
-  color: #333;
-  background: transparent;
+  flex: 1; border: none; outline: none;
+  font-size: 13px; color: #333; background: transparent;
 }
 .search-input::placeholder { color: #bbb; }
 
-/* ==================== 学期列表 ==================== */
-.semester-list {
+/* ==================== 学年学期分组 ==================== */
+.course-empty {
+  text-align: center;
+  padding: 40px 0;
+  color: #bbb;
+  font-size: 13px;
+}
+
+.group-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.semester-group {
+.group-item {
   background: #fff;
   border-radius: 12px;
   overflow: hidden;
 }
 
-.semester-header {
+.group-header {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -558,97 +941,130 @@ onMounted(() => {
   user-select: none;
   transition: background .15s;
 }
-.semester-header:hover { background: #fafafa; }
-.semester-header:active { background: #f5f5f5; }
+.group-header:hover { background: #fafafa; }
+.group-header:active { background: #f5f5f5; }
 
-.semester-arrow {
+.group-arrow {
   flex-shrink: 0;
   color: #bbb;
-  transition: transform .2s;
+  transition: transform .25s ease;
 }
-.semester-arrow.expanded { transform: rotate(90deg); }
+.group-arrow.expanded { transform: rotate(90deg); }
 
-.semester-name {
+.group-name {
   font-size: 15px;
   font-weight: 600;
   color: #1a1a1a;
   flex: 1;
 }
 
-.semester-count {
+.group-count {
   font-size: 12px;
   color: #aaa;
 }
 
-/* 课程条目 */
-.semester-courses {
+.group-courses {
   border-top: 1px solid #f0f0f0;
+  overflow: hidden;
 }
 
-.course-item {
+/* 折叠过渡动画 */
+.group-slide-enter-active,
+.group-slide-leave-active {
+  transition: all .25s ease;
+  max-height: 2000px;
+}
+.group-slide-enter-from,
+.group-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* 课程卡片 -- 与置顶卡片风格一致 */
+.group-course-card {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
   cursor: pointer;
   transition: background .1s;
+  position: relative;
 }
-.course-item:hover { background: #fafafa; }
-.course-item:active { background: #f5f5f5; }
-.course-item + .course-item {
+.group-course-card:hover { background: #fafafa; }
+.group-course-card:active { background: #f5f5f5; }
+.group-course-card + .group-course-card {
   border-top: 1px solid #f5f5f5;
 }
 
-.course-thumb {
+.group-card-cover {
   width: 44px;
   height: 44px;
-  border-radius: 8px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-.course-thumb-text {
-  font-size: 16px;
+.group-card-cover-text {
+  font-size: 18px;
   font-weight: 700;
   color: #fff;
 }
 
-.course-info { flex: 1; min-width: 0; }
-.course-name {
+.group-card-body {
+  flex: 1;
+  min-width: 0;
+}
+.group-card-name {
   font-size: 15px;
   font-weight: 500;
   color: #1a1a1a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-bottom: 3px;
+}
+.group-card-intro {
+  font-size: 12px;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin-bottom: 4px;
 }
-.course-meta { font-size: 12px; color: #999; }
-.meta-sep { margin: 0 6px; color: #ddd; }
+.group-card-meta {
+  font-size: 11px;
+  color: #bbb;
+}
 
-.course-menu-btn {
-  width: 32px;
-  height: 32px;
+/* 角色角标 */
+.group-card-tag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 10px;
+  color: #4a6cf7;
+  background: rgba(74,108,247,.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  z-index: 1;
+}
+.group-card-menu {
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   border-radius: 6px;
   background: transparent;
+  color: #bbb;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background .15s;
+  transition: color .15s, background .15s;
 }
-.course-menu-btn:hover { background: #f0f0f0; }
-.course-menu-btn:active { background: #e8e8e8; }
-
-.course-empty {
-  text-align: center;
-  padding: 24px 0;
-  color: #ccc;
-  font-size: 13px;
-}
+.group-card-menu:hover { color: #666; background: #f0f0f0; }
 
 /* ==================== 弹窗 ==================== */
 .dialog-overlay {
