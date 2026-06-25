@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.example.classpai.auth.service.TokenService;
 import org.example.classpai.common.Result;
 import org.example.classpai.dto.RegisterDTO;
+import org.example.classpai.dto.UpdateProfileDTO;
 import org.example.classpai.entity.User;
 import org.example.classpai.service.UserService;
 import org.springframework.web.bind.annotation.*;
@@ -25,9 +26,23 @@ public class UserController {
         return userService.sendCode(phone);
     }
 
+    @GetMapping("/send-code-profile")
+    public Result<?> sendCodeForProfile(@RequestParam String phone,
+            HttpServletRequest request) {
+        User currentUser = (User) request.getAttribute("currentUser");
+        return userService.sendCodeForProfile(phone, currentUser.getUserId());
+    }
+
     @PostMapping("/register")
     public Result<?> register(@RequestBody RegisterDTO dto) {
         return userService.register(dto);
+    }
+
+    @PutMapping("/profile")
+    public Result<?> updateProfile(@RequestBody UpdateProfileDTO dto,
+            HttpServletRequest request) {
+        User currentUser = (User) request.getAttribute("currentUser");
+        return userService.updateProfile(dto, currentUser.getUserId());
     }
 
     @GetMapping("/current")

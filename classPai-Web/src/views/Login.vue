@@ -138,10 +138,8 @@ async function handleLogin() {
       password: form.password
     })
     const data = res.data
-    // token 存入 sessionStorage，关闭页面即失效
     sessionStorage.setItem('token', data.token)
     sessionStorage.setItem('role', data.role)
-    alert(`登录成功！\n用户：${data.userName}\n角色：${data.role === 'TEACHER' ? '教师' : '学生'}`)
     emit('loginSuccess')
   } catch (e) {
     errorMsg.value = e.message

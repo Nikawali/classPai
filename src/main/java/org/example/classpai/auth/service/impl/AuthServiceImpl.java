@@ -24,8 +24,8 @@ public class AuthServiceImpl implements AuthService {
     private final LoginRateLimiter rateLimiter;
 
     public AuthServiceImpl(UserMapper userMapper,
-                           TokenService tokenService,
-                           LoginRateLimiter rateLimiter) {
+            TokenService tokenService,
+            LoginRateLimiter rateLimiter) {
         this.userMapper = userMapper;
         this.tokenService = tokenService;
         this.rateLimiter = rateLimiter;
@@ -66,12 +66,10 @@ public class AuthServiceImpl implements AuthService {
         // ---------- 5. 清除失败记录，生成 Token ----------
         rateLimiter.clear(account);
 
-        LoginResponse userInfo = new LoginResponse(
-                null,
-                user.getUserId(),
-                user.getUserName(),
-                user.getRole()
-        );
+        LoginResponse userInfo = new LoginResponse();
+        userInfo.setUserId(user.getUserId());
+        userInfo.setUserName(user.getUserName());
+        userInfo.setRole(user.getRole());
 
         String token = tokenService.generateToken(userInfo);
         userInfo.setToken(token);
@@ -85,7 +83,8 @@ public class AuthServiceImpl implements AuthService {
         // 优先按手机号查
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>().eq(User::getPhone, account));
-        if (user != null) return user;
+        if (user != null)
+            return user;
 
         // 尝试按 userId 查
         try {
