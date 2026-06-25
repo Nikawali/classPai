@@ -6,8 +6,6 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 登录限流与防暴力破解（Redis 版）
- * 
  * - 每个 IP 每分钟最多 10 次登录请求
  * - 同一账号连续 5 次失败后锁定 15 分钟
  */
