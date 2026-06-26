@@ -89,6 +89,10 @@ export const api = {
   getCourseDetail(courseId) {
     return request(`/course/${courseId}`)
   },
+  /** 获取课程所有成员 */
+  getCourseMembers(courseId) {
+    return request(`/course/${courseId}/members`)
+  },
 
   // ========== 置顶 ==========
   togglePin(courseId) {
@@ -132,13 +136,21 @@ export const api = {
   },
 
   // ========== 作业 ==========
-  /** 获取课程作业列表（分页） */
+  /** 获取课程作业列表 */
   getHomeworkList(courseId, page = 1, pageSize = 10) {
     return request(`/homework/course/${courseId}?page=${page}&pageSize=${pageSize}`)
+  },
+  /** 获取单个作业 */
+  getHomework(hwId) {
+    return request(`/homework/${hwId}`)
   },
   /** 获取某个作业的文件列表 */
   getHomeworkFiles(hwId) {
     return request(`/homework/${hwId}/files`)
+  },
+  /** 教师批阅页：获取作业所有学生提交状态 */
+  getHomeworkGrading(hwId) {
+    return request(`/homework/${hwId}/grading`)
   },
   // ========== 课程功能按钮（预留） ==========
   getCourseAttendance(courseId) {

@@ -52,9 +52,18 @@ public class HomeworkController {
     @GetMapping("/course/{courseId}")
     public Result<PageResult<Homework>> list(@PathVariable Long courseId,
                                        @RequestParam(defaultValue = "1") int page,
-                                       @RequestParam(defaultValue = "10") int pageSize) {
-        PageResult<Homework> pr = homeworkService.listHomework(courseId, page, pageSize);
+                                       @RequestParam(defaultValue = "10") int pageSize,
+                                       HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        PageResult<Homework> pr = homeworkService.listHomework(courseId, user, page, pageSize);
         return Result.success(pr);
+    }
+
+    /** 获取单个作业 */
+    @GetMapping("/{hwId}")
+    public Result<Homework> getOne(@PathVariable Long hwId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return homeworkService.getHomework(hwId, user);
     }
 
     /** 获取某个作业的文件列表 */
@@ -88,5 +97,12 @@ public class HomeworkController {
                             HttpServletRequest request) {
         User user = (User) request.getAttribute("currentUser");
         return homeworkService.grade(submitId, dto, user);
+    }
+
+    /** 教师批阅页：获取作业所有学生提交状态 */
+    @GetMapping("/{hwId}/grading")
+    public Result<List<Submission>> grading(@PathVariable Long hwId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return homeworkService.getGradingList(hwId, user);
     }
 }

@@ -9,7 +9,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Token 服务 — 将 Token 存入 Redis，24 小时过期
+ * Token 服务 — 将 Token 存入 Redis，
  */
 @Service
 public class TokenService {

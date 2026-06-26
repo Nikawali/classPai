@@ -23,4 +23,21 @@ public class Homework {
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
+
+    // ========== 瞬态字段（不存库，listHomework 时填充） ==========
+    /** 学生视角：当前学生是否已提交 */
+    @TableField(exist = false)
+    private Boolean submitted;
+    /** 教师视角：已提交人数 */
+    @TableField(exist = false)
+    private Integer submitCount;
+    /** 教师视角：已批改人数 */
+    @TableField(exist = false)
+    private Integer gradedCount;
+    /** 教师视角：课程总学生人数 */
+    @TableField(exist = false)
+    private Integer totalStudents;
+    /** 作业满分 */
+    @TableField(exist = false)
+    private Integer totalScore;
 }

@@ -1,22 +1,74 @@
 <template>
   <div id="app-root">
-    <Register v-if="page === 'register'" @goLogin="page = 'login'" />
-    <Login v-else-if="page === 'login'" @goRegister="page = 'register'" @loginSuccess="page = 'main'" />
-    <Main v-else-if="page === 'main'" @logout="handleLogout" />
+    <Register v-if="currentPage === 'register'" @goLogin="go('login')" />
+    <Login v-else-if="currentPage === 'login'" @goRegister="go('register')" @loginSuccess="go('main')" />
+    <Main v-else-if="currentPage === 'main'" @logout="handleLogout" />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import Login from './views/Login.vue'
 import Register from './views/Register.vue'
 import Main from './views/Main.vue'
 
-const page = ref(sessionStorage.getItem('token') ? 'main' : 'login')
+// 解析 URL hash → 页面名
+// #/login → login, #/register → register, #/ → main, #/course/... → main
+function hashToPage(hash) {
+  if (hash === '#/login') return 'login'
+  if (hash === '#/register') return 'register'
+  if (hash === '#/' || /^#\/course\//.test(hash)) return 'main'
+  return null
+}
+
+const currentPage = ref('login')
+
+function syncFromHash() {
+  const page = hashToPage(location.hash)
+  const hasToken = !!sessionStorage.getItem('token')
+
+  // 需要登录的页面但无 token → 跳到登录
+  if (page === 'main' && !hasToken) {
+    go('login', true)
+    return
+  }
+  // 登录/注册页已有 token → 跳到主页
+  if ((page === 'login' || page === 'register') && hasToken) {
+    go('main', true)
+    return
+  }
+  if (page) {
+    currentPage.value = page
+    return
+  }
+  // 未知 hash 或无 hash → 根据 token 决定
+  go(hasToken ? 'main' : 'login', true)
+}
+
+// 导航到指定页面（修改 URL hash）
+function go(page, replace) {
+  const map = { login: '#/login', register: '#/register', main: '#/' }
+  const hash = map[page]
+  if (!hash) return
+  if (replace) {
+    location.replace(hash)
+  } else {
+    location.hash = hash
+  }
+}
 
 function handleLogout() {
-  page.value = 'login'
+  go('login')
 }
+
+onMounted(() => {
+  syncFromHash()
+  window.addEventListener('hashchange', syncFromHash)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('hashchange', syncFromHash)
+})
 </script>
 
 <style>

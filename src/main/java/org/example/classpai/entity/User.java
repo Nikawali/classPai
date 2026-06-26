@@ -1,6 +1,7 @@
 package org.example.classpai.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -15,6 +16,7 @@ public class User {
     /** 登录用户名，唯一 */
     private String userName;
 
+    @JsonIgnore
     private String password;
 
     /** teacher / student */

@@ -45,12 +45,6 @@ public class UserController {
         return userService.updateProfile(dto, currentUser.getUserId());
     }
 
-    @GetMapping("/current")
-    public Result<User> current(HttpServletRequest request) {
-        User user = (User) request.getAttribute("currentUser");
-        return Result.success(user);
-    }
-
     @PostMapping("/logout")
     public Result<?> logout(@RequestHeader("Authorization") String auth) {
         if (auth != null && auth.startsWith("Bearer ")) {

@@ -3,6 +3,7 @@ package org.example.classpai.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import org.example.classpai.common.Result;
 import org.example.classpai.dto.CourseDTO;
+import org.example.classpai.dto.MemberDTO;
 import org.example.classpai.dto.UserAllCoursesDTO;
 import org.example.classpai.entity.Course;
 import org.example.classpai.entity.User;
@@ -40,6 +41,13 @@ public class CourseController {
     public Result<Course> detail(@PathVariable Long courseId, HttpServletRequest request) {
         User user = (User) request.getAttribute("currentUser");
         return courseService.getCourseDetail(courseId, user);
+    }
+
+    /** 获取课程所有成员 */
+    @GetMapping("/{courseId}/members")
+    public Result<List<MemberDTO>> members(@PathVariable Long courseId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return courseService.getCourseMembers(courseId, user);
     }
 
     /** 切换置顶 */

@@ -5,6 +5,7 @@ import org.example.classpai.common.Result;
 import org.example.classpai.common.exception.BusinessException;
 import org.example.classpai.dto.CourseDTO;
 import org.example.classpai.dto.CourseGroupDTO;
+import org.example.classpai.dto.MemberDTO;
 import org.example.classpai.dto.UserAllCoursesDTO;
 import org.example.classpai.entity.*;
 import org.example.classpai.mapper.*;
@@ -122,6 +123,13 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
+    public Result<List<MemberDTO>> getCourseMembers(Long courseId, User user) {
+        checkMembership(courseId, user);
+        List<MemberDTO> members = userCourseMapper.findMembersByCourseId(courseId);
+        return Result.success(members);
+    }
+
+    @Override
     @Transactional
     public Result<?> joinCourse(String courseCode, User user) {
         LambdaQueryWrapper<Course> cw = new LambdaQueryWrapper<>();
@@ -157,14 +165,7 @@ public class CourseServiceImpl implements CourseService {
             throw new BusinessException(404, "课程不存在");
         }
 
-        // 查询当前用户在该课程中的角色
-        UserCourse uc = userCourseMapper.selectOne(
-                new LambdaQueryWrapper<UserCourse>()
-                        .eq(UserCourse::getCourseId, courseId)
-                        .eq(UserCourse::getUserId, user.getUserId()));
-        if (uc == null) {
-            throw new BusinessException(403, "非课程成员，无权查看");
-        }
+        UserCourse uc = checkMembership(courseId, user);
         course.setUserRole(uc.getRole());
 
         // 填充学生人数
@@ -223,6 +224,18 @@ public class CourseServiceImpl implements CourseService {
             }
         }
         return Result.success();
+    }
+
+    /** 校验用户是否为课程成员，是则返回关联记录，否则抛异常 */
+    private UserCourse checkMembership(Long courseId, User user) {
+        UserCourse uc = userCourseMapper.selectOne(
+                new LambdaQueryWrapper<UserCourse>()
+                        .eq(UserCourse::getCourseId, courseId)
+                        .eq(UserCourse::getUserId, user.getUserId()));
+        if (uc == null) {
+            throw new BusinessException(403, "非课程成员，无权查看");
+        }
+        return uc;
     }
 
     /** 根据课程的 startDate/endDate/semester 构建分组键，如 "2025-2026第一学期" */

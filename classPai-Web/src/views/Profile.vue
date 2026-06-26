@@ -191,8 +191,8 @@ const initial = computed(() => {
 })
 const roleText = computed(() => {
   const r = user.value.role
-  if (r === 'TEACHER') return '教师'
-  if (r === 'STUDENT') return '学生'
+  if (r === 'teacher') return '教师'
+  if (r === 'student') return '学生'
   return r || '-'
 })
 

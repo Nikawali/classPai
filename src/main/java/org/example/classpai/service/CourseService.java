@@ -2,6 +2,7 @@ package org.example.classpai.service;
 
 import org.example.classpai.common.Result;
 import org.example.classpai.dto.CourseDTO;
+import org.example.classpai.dto.MemberDTO;
 import org.example.classpai.dto.UserAllCoursesDTO;
 import org.example.classpai.entity.Course;
 import org.example.classpai.entity.User;
@@ -15,6 +16,9 @@ public interface CourseService {
     Result<?> joinCourse(String courseCode, User user);
 
     Result<Course> getCourseDetail(Long courseId, User user);
+
+    /** 获取课程所有成员 */
+    Result<List<MemberDTO>> getCourseMembers(Long courseId, User user);
 
     /** 切换置顶状态 */
     Result<?> togglePin(Long courseId, User user);

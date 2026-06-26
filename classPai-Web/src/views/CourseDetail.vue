@@ -1,5 +1,40 @@
 <template>
   <div class="course-detail-page" v-if="course">
+    <!-- ==================== 成员管理页 ==================== -->
+    <CourseMembers
+      v-if="showMembers"
+      :courseId="course.courseId"
+      @back="backFromMembers"
+    />
+
+    <!-- ==================== 教师作业批阅页 ==================== -->
+    <TeacherHomework
+      v-if="showGrading"
+      :hwId="gradingHwId"
+      @back="backFromGrading"
+    />
+
+    <!-- ==================== 作业详情页（占位） ==================== -->
+    <template v-else-if="selectedHomeworkId">
+      <div class="hw-detail-placeholder">
+        <div class="hw-detail-topbar">
+          <button class="hw-detail-back" @click="backFromHomework">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <h2 class="hw-detail-title">作业详情</h2>
+        </div>
+        <div class="hw-detail-body">
+          <p class="hw-detail-info">作业 ID: {{ selectedHomeworkId }}</p>
+          <p class="hw-detail-info">课程 ID: {{ course.courseId }}</p>
+          <p class="hw-detail-placeholder-text">作业详情页面开发中...</p>
+        </div>
+      </div>
+    </template>
+
+    <!-- ==================== 课程详情主页 ==================== -->
+    <template v-else>
     <!-- ==================== 顶部 Banner ==================== -->
     <div class="banner" :style="{ background: bannerColor }">
       <!-- 渐变红底 + 装饰叶片 -->
@@ -40,12 +75,15 @@
 
       <!-- 右侧统计 -->
       <div class="banner-stats">
-        <div class="stat-item">
+        <div class="stat-item stat-clickable" @click="enterMembers">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
             <circle cx="12" cy="9" r="3.5" stroke="rgba(255,255,255,.7)" stroke-width="1.5"/>
             <path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
           <span>{{ course.studentCount || 0 }} 成员</span>
+          <svg class="stat-arrow" viewBox="0 0 24 24" width="10" height="10" fill="none">
+            <path d="M8 6l8 6-8 6" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
         </div>
         <div class="stat-item">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
@@ -195,14 +233,23 @@
           <p class="homework-empty-text">暂无作业</p>
         </div>
         <div v-else class="homework-list">
-          <div v-for="hw in homeworks" :key="hw.hwId" class="homework-card">
+          <div v-for="hw in homeworks" :key="hw.hwId" class="homework-card" @click="onHomeworkClick(hw)">
             <div class="hw-card-top">
               <h4 class="hw-title">{{ hw.title }}</h4>
+              <!-- 学生视角：提交状态 -->
+              <span v-if="!isTeacher" class="hw-status" :class="hw.submitted ? 'submitted' : 'unsubmitted'">
+                {{ hw.submitted ? '已提交' : '未提交' }}
+              </span>
+              <!-- 教师视角：已交/已批 -->
+              <span v-if="isTeacher" class="hw-stats">
+                已交 {{ hw.submitCount || 0 }}/{{ hw.totalStudents || 0 }}
+                已批 {{ hw.gradedCount || 0 }}/{{ hw.submitCount || 0 }}
+              </span>
               <span class="hw-deadline">{{ formatDate(hw.deadline) }}</span>
             </div>
             <div class="hw-card-bottom">
               <p class="hw-content">{{ hw.content }}</p>
-              <button class="hw-file-btn" title="查看文件" @click="toggleFiles(hw.hwId)">
+              <button class="hw-file-btn" title="查看文件" @click.stop="toggleFiles(hw.hwId)">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
                   <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" stroke="currentColor" stroke-width="1.5"/>
                   <polyline points="13 2 13 9 20 9" stroke="currentColor" stroke-width="1.5"/>
@@ -244,12 +291,16 @@
       <p>{{ error }}</p>
       <button @click="loadDetail">重试</button>
     </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { api } from '../api/request.js'
+import CourseMembers from './CourseMembers.vue'
+import TeacherHomework from './TeacherHomework.vue'
+import { coverColor } from '../utils/colors.js'
 
 const props = defineProps({
   courseId: { type: [Number, String], required: true }
@@ -260,6 +311,111 @@ const course = ref(null)
 const loading = ref(true)
 const error = ref('')
 const activeTab = ref('catalog')
+
+// ============ 成员管理导航 ============
+const showMembers = ref(false)
+
+function enterMembers() {
+  showMembers.value = true
+  location.hash = '#/course/' + props.courseId + '/members'
+}
+
+function backFromMembers() {
+  showMembers.value = false
+  location.hash = '#/course/' + props.courseId
+}
+
+// ============ 作业详情导航 ============
+const selectedHomeworkId = ref(null)
+
+// ============ 教师批阅导航 ============
+const showGrading = ref(false)
+const gradingHwId = ref(null)
+
+function isGradingHash() {
+  const m = location.hash.match(/^#\/course\/(\d+)\/homework\/(\d+)\/grading$/)
+  if (m && Number(m[1]) === Number(props.courseId)) {
+    gradingHwId.value = Number(m[2])
+    return true
+  }
+  return false
+}
+
+function enterGrading(hw) {
+  showMembers.value = false
+  showGrading.value = true
+  gradingHwId.value = hw.hwId
+  location.hash = '#/course/' + props.courseId + '/homework/' + hw.hwId + '/grading'
+}
+
+function backFromGrading() {
+  showGrading.value = false
+  gradingHwId.value = null
+  location.hash = '#/course/' + props.courseId
+}
+
+function parseHash() {
+  const m = location.hash.match(/^#\/course\/(\d+)\/homework\/(\d+)$/)
+  if (m && Number(m[1]) === Number(props.courseId)) {
+    return Number(m[2])
+  }
+  return null
+}
+
+function isMembersHash() {
+  const m = location.hash.match(/^#\/course\/(\d+)\/members$/)
+  return m && Number(m[1]) === Number(props.courseId)
+}
+
+function onHomeworkClick(hw) {
+  if (isTeacher.value) {
+    enterGrading(hw)
+  } else {
+    enterHomework(hw.hwId)
+  }
+}
+
+function enterHomework(hwId) {
+  showMembers.value = false
+  selectedHomeworkId.value = hwId
+  location.hash = '#/course/' + props.courseId + '/homework/' + hwId
+}
+
+function backFromHomework() {
+  selectedHomeworkId.value = null
+  location.hash = '#/course/' + props.courseId
+}
+
+function onHashChange() {
+  if (isMembersHash()) {
+    showMembers.value = true
+    showGrading.value = false
+    selectedHomeworkId.value = null
+  } else if (isGradingHash()) {
+    showMembers.value = false
+    showGrading.value = true
+    selectedHomeworkId.value = null
+  } else {
+    showMembers.value = false
+    showGrading.value = false
+    selectedHomeworkId.value = parseHash()
+  }
+}
+
+onMounted(() => {
+  if (isMembersHash()) {
+    showMembers.value = true
+  } else if (isGradingHash()) {
+    showGrading.value = true
+  } else {
+    selectedHomeworkId.value = parseHash()
+  }
+  window.addEventListener('hashchange', onHashChange)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('hashchange', onHashChange)
+})
 
 // ============ 作业 ============
 const homeworks = ref([])
@@ -359,10 +515,6 @@ const currentTabLabel = computed(() => {
   return t ? t.label : ''
 })
 
-const coverColors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#fee140', '#30cfd0']
-function coverColor(id) {
-  return coverColors[id % coverColors.length]
-}
 const bannerColor = computed(() => {
   const id = course.value?.courseId
   return id != null ? coverColor(id) : '#667eea'
@@ -478,6 +630,7 @@ onMounted(() => { loadDetail() })
   position: relative;
   z-index: 1;
   padding-top: 8px;
+  padding-left: 44px;
 }
 .banner-class {
   font-size: 13px;
@@ -532,6 +685,15 @@ onMounted(() => { loadDetail() })
   font-size: 12px;
   color: rgba(255,255,255,.7);
 }
+.stat-clickable {
+  cursor: pointer;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 8px;
+  transition: background .15s;
+}
+.stat-clickable:hover { background: rgba(255,255,255,.1); }
+.stat-arrow { flex-shrink: 0; }
 
 /* ==================== 功能按钮 ==================== */
 .func-buttons {
@@ -695,7 +857,10 @@ onMounted(() => { loadDetail() })
   background: #f9f9fb;
   border-radius: 10px;
   padding: 14px 16px;
+  cursor: pointer;
+  transition: background .15s;
 }
+.homework-card:hover { background: #f0f0f5; }
 .hw-card-top {
   display: flex;
   align-items: flex-start;
@@ -716,6 +881,22 @@ onMounted(() => { loadDetail() })
   padding: 2px 8px;
   background: #fef2f2;
   border-radius: 4px;
+  flex-shrink: 0;
+}
+.hw-status {
+  font-size: 11px;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.hw-status.submitted { color: #059669; background: #ecfdf5; }
+.hw-status.unsubmitted { color: #e74c3c; background: #fef2f2; }
+.hw-stats {
+  font-size: 11px;
+  color: #666;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .hw-card-bottom {
   display: flex;
@@ -826,5 +1007,52 @@ onMounted(() => { loadDetail() })
   color: #fff;
   font-size: 13px;
   cursor: pointer;
+}
+
+/* ==================== 作业详情占位 ==================== */
+.hw-detail-placeholder {
+  min-height: 100vh;
+  background: #f5f6fa;
+}
+.hw-detail-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+.hw-detail-back {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: #f0f0f0;
+  color: #333;
+  cursor: pointer;
+  transition: background .15s;
+}
+.hw-detail-back:hover { background: #e0e0e0; }
+.hw-detail-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.hw-detail-body {
+  padding: 40px 20px;
+  text-align: center;
+}
+.hw-detail-info {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 8px;
+}
+.hw-detail-placeholder-text {
+  font-size: 14px;
+  color: #bbb;
+  margin-top: 24px;
 }
 </style>

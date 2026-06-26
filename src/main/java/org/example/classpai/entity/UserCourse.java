@@ -19,6 +19,7 @@ public class UserCourse {
     /** 在该课程中的角色：teacher / student */
     private String role;
 
+    /** 用户在该课程的最终成绩 */
     @TableField(exist = false)
     private BigDecimal score;
 

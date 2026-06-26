@@ -3,7 +3,6 @@ package org.example.classpai.entity;
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -24,4 +23,13 @@ public class Submission {
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime submitTime;
+
+    @TableField(exist = false)
+    private String userName;
+
+    @TableField(exist = false)
+    private Integer totalScore;
+
+    @TableField(exist = false)
+    private Boolean submitted;
 }

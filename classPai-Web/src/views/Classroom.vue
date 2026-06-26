@@ -3,7 +3,7 @@
     <CourseDetail
       v-if="selectedCourseId"
       :courseId="selectedCourseId"
-      @back="selectedCourseId = null"
+      @back="handleBackFromDetail"
     />
     <template v-else>
     <!-- ==================== 置顶课程区（拖动排序） ==================== -->
@@ -238,10 +238,17 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { api } from '../api/request.js'
 import CourseCreate from './CourseCreate.vue'
 import CourseDetail from './CourseDetail.vue'
+import { coverColor } from '../utils/colors.js'
 
 // ==================== 状态 ====================
 const activeTab = ref('student')
-const selectedCourseId = ref(null)
+
+// 从 URL hash 恢复课程详情页，支持 #/course/:id、#/course/:id/members、#/course/:id/homework/:hwId
+function parseHash() {
+  const m = location.hash.match(/^#\/course\/(\d+)/)
+  return m ? Number(m[1]) : null
+}
+const selectedCourseId = ref(parseHash())
 const showSearch = ref(false)
 const searchKeyword = ref('')
 const pinnedCourses = ref([])
@@ -413,12 +420,6 @@ function handleSheetAction(action) {
   }
 }
 
-// ==================== 颜色 ====================
-const coverColors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#fee140', '#30cfd0']
-function coverColor(id) {
-  return coverColors[id % coverColors.length]
-}
-
 // ==================== 拖动排序 ====================
 function onDragStart(idx, e) {
   dragIndex.value = idx
@@ -490,6 +491,12 @@ function toggleGroup(name) {
 function enterCourse(course) {
   if (dragged.value) return
   selectedCourseId.value = course.courseId
+  location.hash = '#/course/' + course.courseId
+}
+
+function handleBackFromDetail() {
+  selectedCourseId.value = null
+  location.hash = '#/'
 }
 
 async function handleJoinCourse() {
@@ -537,6 +544,12 @@ async function loadAllCourses() {
 onMounted(() => {
   loadAllCourses()
   window.addEventListener('resize', updateScrollbar)
+  window.addEventListener('hashchange', () => {
+    selectedCourseId.value = parseHash()
+    if (!selectedCourseId.value) {
+      nextTick(() => updateScrollbar())
+    }
+  })
 })
 </script>
 
