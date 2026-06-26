@@ -1,5 +1,11 @@
 <template>
   <div class="classroom-page">
+    <CourseDetail
+      v-if="selectedCourseId"
+      :courseId="selectedCourseId"
+      @back="selectedCourseId = null"
+    />
+    <template v-else>
     <!-- ==================== 置顶课程区（拖动排序） ==================== -->
     <div class="top-section">
       <div class="top-header">
@@ -223,6 +229,7 @@
         <button class="sheet-cancel-btn" @click="closeBottomSheet">取消</button>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
@@ -230,9 +237,11 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { api } from '../api/request.js'
 import CourseCreate from './CourseCreate.vue'
+import CourseDetail from './CourseDetail.vue'
 
 // ==================== 状态 ====================
 const activeTab = ref('student')
+const selectedCourseId = ref(null)
 const showSearch = ref(false)
 const searchKeyword = ref('')
 const pinnedCourses = ref([])
@@ -480,7 +489,7 @@ function toggleGroup(name) {
 
 function enterCourse(course) {
   if (dragged.value) return
-  // TODO：跳转到课程详情页
+  selectedCourseId.value = course.courseId
 }
 
 async function handleJoinCourse() {
