@@ -85,6 +85,10 @@ export const api = {
   getAllCourses() {
     return request('/course/all')
   },
+  /** 获取单个课程详情 */
+  getCourseDetail(courseId) {
+    return request(`/course/${courseId}`)
+  },
 
   // ========== 置顶 ==========
   togglePin(courseId) {
@@ -102,6 +106,45 @@ export const api = {
   // ========== 搜索 ==========
   searchCourses(keyword) {
     return request(`/course/search?keyword=${encodeURIComponent(keyword)}`)
+  },
+
+  // ========== 课程详情页各 Tab（预留，后端开发后启用） ==========
+  getCourseChapters(courseId) {
+    return request(`/course/${courseId}/chapters`)
+  },
+  getCourseCourseware(courseId) {
+    return request(`/course/${courseId}/courseware`)
+  },
+  getCourseHomeworks(courseId) {
+    return request(`/course/${courseId}/homeworks`)
+  },
+  getCourseTests(courseId) {
+    return request(`/course/${courseId}/tests`)
+  },
+  getCourseMaterials(courseId) {
+    return request(`/course/${courseId}/materials`)
+  },
+  getCourseNotices(courseId) {
+    return request(`/course/${courseId}/notices`)
+  },
+  getCourseTopics(courseId) {
+    return request(`/course/${courseId}/topics`)
+  },
+  // ========== 课程功能按钮（预留） ==========
+  getCourseAttendance(courseId) {
+    return request(`/course/${courseId}/attendance`)
+  },
+  getCoursePerformance(courseId) {
+    return request(`/course/${courseId}/performance`)
+  },
+  getCourseGrades(courseId) {
+    return request(`/course/${courseId}/grades`)
+  },
+  getCourseAnalysis(courseId) {
+    return request(`/course/${courseId}/analysis`)
+  },
+  getCourseErrors(courseId) {
+    return request(`/course/${courseId}/errors`)
   },
 
   // ========== 个人信息修改 ==========
