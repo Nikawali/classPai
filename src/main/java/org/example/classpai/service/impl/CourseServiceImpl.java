@@ -24,7 +24,7 @@ public class CourseServiceImpl implements CourseService {
     private final UserCourseMapper userCourseMapper;
 
     public CourseServiceImpl(CourseMapper courseMapper,
-                             UserCourseMapper userCourseMapper) {
+            UserCourseMapper userCourseMapper) {
         this.courseMapper = courseMapper;
         this.userCourseMapper = userCourseMapper;
     }
@@ -134,7 +134,7 @@ public class CourseServiceImpl implements CourseService {
         // 检查是否已加入
         LambdaQueryWrapper<UserCourse> ucWrapper = new LambdaQueryWrapper<>();
         ucWrapper.eq(UserCourse::getUserId, user.getUserId())
-                 .eq(UserCourse::getCourseId, course.getCourseId());
+                .eq(UserCourse::getCourseId, course.getCourseId());
         if (userCourseMapper.selectCount(ucWrapper) > 0) {
             throw new BusinessException(400, "已加入该课程");
         }
@@ -157,19 +157,24 @@ public class CourseServiceImpl implements CourseService {
             throw new BusinessException(404, "课程不存在");
         }
 
-        if (!isCourseMember(courseId, user.getUserId())) {
-            throw new BusinessException(403, "非课程成员，无权查看");
-        }
-
-        return Result.success(course);
-    }
-
-    /** 判断用户是否是该课程成员（无论角色） */
-    private boolean isCourseMember(Long courseId, Long userId) {
-        return userCourseMapper.selectCount(
+        // 查询当前用户在该课程中的角色
+        UserCourse uc = userCourseMapper.selectOne(
                 new LambdaQueryWrapper<UserCourse>()
                         .eq(UserCourse::getCourseId, courseId)
-                        .eq(UserCourse::getUserId, userId)) > 0;
+                        .eq(UserCourse::getUserId, user.getUserId()));
+        if (uc == null) {
+            throw new BusinessException(403, "非课程成员，无权查看");
+        }
+        course.setUserRole(uc.getRole());
+
+        // 填充学生人数
+        Long studentCount = userCourseMapper.selectCount(
+                new LambdaQueryWrapper<UserCourse>()
+                        .eq(UserCourse::getCourseId, courseId)
+                        .eq(UserCourse::getRole, "student"));
+        course.setStudentCount(studentCount.intValue());
+
+        return Result.success(course);
     }
 
     @Override
@@ -177,7 +182,7 @@ public class CourseServiceImpl implements CourseService {
     public Result<?> togglePin(Long courseId, User user) {
         LambdaQueryWrapper<UserCourse> ucWrapper = new LambdaQueryWrapper<>();
         ucWrapper.eq(UserCourse::getUserId, user.getUserId())
-                 .eq(UserCourse::getCourseId, courseId);
+                .eq(UserCourse::getCourseId, courseId);
         UserCourse uc = userCourseMapper.selectOne(ucWrapper);
         if (uc == null) {
             throw new BusinessException(404, "未加入该课程");
@@ -210,7 +215,7 @@ public class CourseServiceImpl implements CourseService {
         for (int i = 0; i < courseIds.size(); i++) {
             LambdaQueryWrapper<UserCourse> ucWrapper = new LambdaQueryWrapper<>();
             ucWrapper.eq(UserCourse::getUserId, user.getUserId())
-                     .eq(UserCourse::getCourseId, courseIds.get(i));
+                    .eq(UserCourse::getCourseId, courseIds.get(i));
             UserCourse uc = userCourseMapper.selectOne(ucWrapper);
             if (uc != null) {
                 uc.setSortOrder(i + 1);
