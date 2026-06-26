@@ -18,7 +18,6 @@ public class HomeworkServiceImpl implements HomeworkService {
 
     private final HomeworkMapper homeworkMapper;
     private final SubmissionMapper submissionMapper;
-    private final CourseMapper courseMapper;
     private final UserCourseMapper userCourseMapper;
 
     public HomeworkServiceImpl(HomeworkMapper homeworkMapper,
@@ -27,7 +26,6 @@ public class HomeworkServiceImpl implements HomeworkService {
                                UserCourseMapper userCourseMapper) {
         this.homeworkMapper = homeworkMapper;
         this.submissionMapper = submissionMapper;
-        this.courseMapper = courseMapper;
         this.userCourseMapper = userCourseMapper;
     }
 

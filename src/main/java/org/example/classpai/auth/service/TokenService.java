@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 public class TokenService {
 
     private static final String TOKEN_PREFIX = "auth:token:";
-    private static final long TOKEN_TTL_HOURS = 24;
+    private static final long TOKEN_TTL_HOURS = 1;
 
     private final StringRedisTemplate redisTemplate;
 
