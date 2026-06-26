@@ -177,13 +177,52 @@
 
       <!-- 作业 Tab -->
       <div v-else-if="activeTab === 'homework'" class="homework-panel">
-        <button v-if="isTeacher" class="add-hw-btn" @click="addHomework">+ 添加作业</button>
-        <div v-else class="tab-placeholder">
-          <svg class="tab-placeholder-icon" viewBox="0 0 100 100" fill="none">
-            <circle cx="50" cy="45" r="22" stroke="#e0e0e0" stroke-width="2" fill="#fafafa"/>
-            <path d="M42 45h16M50 37v16" stroke="#ccc" stroke-width="2.5" stroke-linecap="round"/>
+        <div class="homework-header">
+          <h3 class="homework-title">作业列表</h3>
+          <button v-if="isTeacher" class="add-hw-btn" @click="addHomework">+ 添加作业</button>
+        </div>
+
+        <div v-if="hwLoading" class="homework-empty">
+          <p class="homework-empty-text">加载中...</p>
+        </div>
+        <div v-else-if="homeworks.length === 0" class="homework-empty">
+          <svg class="homework-empty-icon" viewBox="0 0 120 120" fill="none">
+            <rect x="25" y="20" width="70" height="80" rx="6" stroke="#ddd" stroke-width="2" fill="#f9f9f9"/>
+            <line x1="40" y1="42" x2="80" y2="42" stroke="#e0e0e0" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="40" y1="54" x2="70" y2="54" stroke="#e8e8e8" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="40" y1="66" x2="75" y2="66" stroke="#e8e8e8" stroke-width="2.5" stroke-linecap="round"/>
           </svg>
-          <p class="tab-placeholder-text">作业功能开发中，接口已预留</p>
+          <p class="homework-empty-text">暂无作业</p>
+        </div>
+        <div v-else class="homework-list">
+          <div v-for="hw in homeworks" :key="hw.hwId" class="homework-card">
+            <div class="hw-card-top">
+              <h4 class="hw-title">{{ hw.title }}</h4>
+              <span class="hw-deadline">{{ formatDate(hw.deadline) }}</span>
+            </div>
+            <div class="hw-card-bottom">
+              <p class="hw-content">{{ hw.content }}</p>
+              <button class="hw-file-btn" title="查看文件" @click="toggleFiles(hw.hwId)">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                  <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" stroke="currentColor" stroke-width="1.5"/>
+                  <polyline points="13 2 13 9 20 9" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+              </button>
+            </div>
+            <!-- 文件列表 -->
+            <div v-if="expandedHwId === hw.hwId" class="hw-files">
+              <div v-if="fileLoadingHwId === hw.hwId" class="hw-files-loading">加载中...</div>
+              <div v-else-if="!hwFiles[hw.hwId] || hwFiles[hw.hwId].length === 0" class="hw-files-empty">该作业暂无文件</div>
+              <a v-else v-for="f in hwFiles[hw.hwId]" :key="f.fileId"
+                 class="hw-file-link" :href="f.filePath" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
+                  <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" stroke="currentColor" stroke-width="1.5"/>
+                  <polyline points="13 2 13 9 20 9" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+                <span>{{ hwFileLabel(f) }}</span>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -209,7 +248,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '../api/request.js'
 
 const props = defineProps({
@@ -221,6 +260,69 @@ const course = ref(null)
 const loading = ref(true)
 const error = ref('')
 const activeTab = ref('catalog')
+
+// ============ 作业 ============
+const homeworks = ref([])
+const hwLoading = ref(false)
+
+async function loadHomeworks() {
+  hwLoading.value = true
+  try {
+    const res = await api.getHomeworkList(props.courseId)
+    homeworks.value = res.data?.records || []
+  } catch (e) {
+    console.error('加载作业列表失败:', e)
+  } finally {
+    hwLoading.value = false
+  }
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '无截止日期'
+  const d = new Date(dateStr)
+  const month = d.getMonth() + 1
+  const day = d.getDate()
+  const hour = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  return `${month}月${day}日 ${hour}:${min}`
+}
+
+// ============ 作业文件 ============
+const hwFiles = ref({})
+const expandedHwId = ref(null)
+const fileLoadingHwId = ref(null)
+
+async function toggleFiles(hwId) {
+  if (expandedHwId.value === hwId) {
+    expandedHwId.value = null
+    return
+  }
+  expandedHwId.value = hwId
+  if (hwFiles.value[hwId]) return // 已加载过
+  fileLoadingHwId.value = hwId
+  try {
+    const res = await api.getHomeworkFiles(hwId)
+    hwFiles.value[hwId] = res.data || []
+  } catch (e) {
+    console.error('加载作业文件失败:', e)
+    hwFiles.value[hwId] = []
+  } finally {
+    fileLoadingHwId.value = null
+  }
+}
+
+/** 从文件路径和类型生成展示标签 */
+function hwFileLabel(f) {
+  const path = f.filePath || ''
+  const type = f.fileType || ''
+  const name = path.split('/').pop() || '文件'
+  return type ? `${decodeURIComponent(name)} (${type})` : decodeURIComponent(name)
+}
+
+// 切换到作业 Tab 时加载数据
+watch(activeTab, (val) => {
+  if (val === 'homework') loadHomeworks()
+})
 
 const tabs = [
   { key: 'catalog',     label: '目录' },
@@ -289,7 +391,8 @@ function handleFunc(type) {
 }
 
 function addHomework() {
-  console.log(`[预留接口] 添加作业: /api/course/${props.courseId}/homework (POST)`)
+  // TODO: 弹出创建作业表单
+  console.log(`[预留接口] 创建作业: POST /api/homework/course/${props.courseId}`)
 }
 
 function copyCode() {
@@ -553,23 +656,142 @@ onMounted(() => { loadDetail() })
 .homework-panel {
   padding: 16px;
 }
+.homework-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.homework-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111;
+}
 .add-hw-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 36px;
-  padding: 0 18px;
+  height: 34px;
+  padding: 0 16px;
   border: none;
   border-radius: 8px;
   background: #2377E4;
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: opacity .15s;
 }
 .add-hw-btn:hover { opacity: .9; }
 .add-hw-btn:active { transform: scale(.97); }
+
+/* 作业列表 */
+.homework-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.homework-card {
+  background: #f9f9fb;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.hw-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.hw-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  flex: 1;
+}
+.hw-deadline {
+  font-size: 11px;
+  color: #e74c3c;
+  white-space: nowrap;
+  padding: 2px 8px;
+  background: #fef2f2;
+  border-radius: 4px;
+}
+.hw-card-bottom {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.hw-content {
+  flex: 1;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 文件按钮 */
+.hw-file-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: #eef0f5;
+  color: #888;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.hw-file-btn:hover { background: #2377E4; color: #fff; }
+
+/* 展开的文件列表 */
+.hw-files {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+.hw-files-loading,
+.hw-files-empty {
+  font-size: 12px;
+  color: #bbb;
+}
+.hw-file-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  color: #2377E4;
+  text-decoration: none;
+  transition: background .15s;
+}
+.hw-file-link + .hw-file-link { margin-top: 4px; }
+.hw-file-link:hover { background: #eef2ff; }
+
+/* 作业空状态 */
+.homework-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 0;
+}
+.homework-empty-icon {
+  width: 100px;
+  height: 100px;
+  margin-bottom: 12px;
+}
+.homework-empty-text {
+  font-size: 13px;
+  color: #bbb;
+}
 
 /* 占位 Tab */
 .tab-placeholder {

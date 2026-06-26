@@ -115,9 +115,6 @@ export const api = {
   getCourseCourseware(courseId) {
     return request(`/course/${courseId}/courseware`)
   },
-  getCourseHomeworks(courseId) {
-    return request(`/course/${courseId}/homeworks`)
-  },
   getCourseTests(courseId) {
     return request(`/course/${courseId}/tests`)
   },
@@ -126,6 +123,23 @@ export const api = {
   },
   getCourseNotices(courseId) {
     return request(`/course/${courseId}/notices`)
+  },
+
+  // ========== 作业 ==========
+  /** 获取课程作业列表（分页） */
+  getHomeworkList(courseId, page = 1, pageSize = 10) {
+    return request(`/homework/course/${courseId}?page=${page}&pageSize=${pageSize}`)
+  },
+  /** 教师创建作业 */
+  createHomework(courseId, body) {
+    return request(`/homework/course/${courseId}`, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    })
+  },
+  /** 获取某个作业的文件列表 */
+  getHomeworkFiles(hwId) {
+    return request(`/homework/${hwId}/files`)
   },
   getCourseTopics(courseId) {
     return request(`/course/${courseId}/topics`)
