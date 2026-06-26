@@ -1,8 +1,8 @@
-﻿<template>
+<template>
   <div class="course-detail-page" v-if="course">
-    <!-- ==================== 椤堕儴 Banner ==================== -->
+    <!-- ==================== 顶部 Banner ==================== -->
     <div class="banner" :style="{ background: bannerColor }">
-      <!-- 娓愬彉绾㈠簳 + 瑁呴グ鍙剁墖 -->
+      <!-- 渐变红底 + 装饰叶片 -->
       <div class="banner-bg">
         <svg class="banner-leaf leaf-1" viewBox="0 0 120 160" fill="none">
           <path d="M60 0 C30 40 0 80 10 130 C20 160 50 160 60 130 C70 160 100 160 110 130 C120 80 90 40 60 0Z" fill="rgba(255,255,255,.08)"/>
@@ -15,37 +15,37 @@
         </svg>
       </div>
 
-      <!-- 杩斿洖鎸夐挳 -->
+      <!-- 返回按钮 -->
       <button class="banner-back" @click="$emit('back')">
         <svg viewBox="0 0 24 24" width="20" height="20">
           <path d="M15 18l-6-6 6-6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </button>
 
-      <!-- 宸︿晶淇℃伅 -->
+      <!-- 左侧信息 -->
       <div class="banner-main">
         <p class="banner-class">{{ classText }}</p>
         <h1 class="banner-title">{{ course.courseName }}</h1>
         <div class="banner-code-row">
-          <span class="banner-code">鍔犺鐮?{{ course.courseCode }}</span>
+          <span class="banner-code">加课码 {{ course.courseCode }}</span>
           <button class="banner-code-copy" @click.stop="copyCode">
             <svg viewBox="0 0 24 24" width="14" height="14">
               <rect x="8" y="2" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
               <path d="M16 6V4C16 2.9 15.1 2 14 2H4C2.9 2 2 2.9 2 4V16C2 17.1 2.9 18 4 18H6" fill="none" stroke="currentColor" stroke-width="1.5"/>
             </svg>
-            澶嶅埗
+            复制
           </button>
         </div>
       </div>
 
-      <!-- 鍙充晶缁熻 -->
+      <!-- 右侧统计 -->
       <div class="banner-stats">
         <div class="stat-item">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
             <circle cx="12" cy="9" r="3.5" stroke="rgba(255,255,255,.7)" stroke-width="1.5"/>
             <path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          <span>{{ course.studentCount || 0 }} 鎴愬憳</span>
+          <span>{{ course.studentCount || 0 }} 成员</span>
         </div>
         <div class="stat-item">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
@@ -54,7 +54,7 @@
             <rect x="2" y="14" width="8" height="8" rx="1.5" stroke="rgba(255,255,255,.7)" stroke-width="1.5"/>
             <rect x="14" y="14" width="8" height="8" rx="1.5" stroke="rgba(255,255,255,.7)" stroke-width="1.5"/>
           </svg>
-          <span>0 鍒嗙粍</span>
+          <span>0 分组</span>
         </div>
         <div class="stat-item">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
@@ -63,12 +63,12 @@
             <circle cx="14.5" cy="9.5" r="1" fill="rgba(255,255,255,.5)"/>
             <path d="M7 14c.8-1.5 2.8-2.5 5-2.5s4.2 1 5 2.5" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          <span>{{ course.courseIntro ? '鏈? : '鏆傛棤' }}浠嬬粛</span>
+          <span>{{ course.courseIntro ? '有' : '暂无' }}介绍</span>
         </div>
       </div>
     </div>
 
-    <!-- ==================== 鍔熻兘鎸夐挳妯″潡 ==================== -->
+    <!-- ==================== 功能按钮模块 ==================== -->
     <div class="func-buttons">
       <button
         v-for="btn in funcButtons"
@@ -77,7 +77,7 @@
         @click="handleFunc(btn.type)"
       >
         <span class="func-btn-circle">
-          <!-- 鑰冨嫟 -->
+          <!-- 考勤 -->
           <svg v-if="btn.icon === 'attendance'" viewBox="0 0 24 24" width="20" height="20" fill="none">
             <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
             <path d="M3 10h18" stroke="currentColor" stroke-width="1.5"/>
@@ -87,7 +87,7 @@
             <circle cx="13" cy="13.5" r="1.2" fill="currentColor"/>
             <circle cx="17.5" cy="13.5" r="1.2" fill="currentColor"/>
           </svg>
-          <!-- 琛ㄧ幇 -->
+          <!-- 表现 -->
           <svg v-else-if="btn.icon === 'performance'" viewBox="0 0 24 24" width="20" height="20" fill="none">
             <path d="M11 4H4C2.9 4 2 4.9 2 6v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8l-6-4h-5z" stroke="currentColor" stroke-width="1.5"/>
             <path d="M14 4v5h5" stroke="currentColor" stroke-width="1.5"/>
@@ -97,7 +97,7 @@
             <line x1="8.5" y1="14" x2="12" y2="17" stroke="currentColor" stroke-width="1.2"/>
             <line x1="12" y1="17" x2="16" y2="12" stroke="currentColor" stroke-width="1.2"/>
           </svg>
-          <!-- 鎴愮哗 -->
+          <!-- 成绩 -->
           <svg v-else-if="btn.icon === 'grades'" viewBox="0 0 24 24" width="20" height="20" fill="none">
             <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
             <line x1="8" y1="10" x2="16" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -106,12 +106,12 @@
             <circle cx="17" cy="11" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/>
             <path d="M16 11l.7 1.4 1.5.2-1.1 1 .3 1.4-1.4-.7-1.4.7.3-1.4-1.1-1 1.5-.2z" fill="currentColor"/>
           </svg>
-          <!-- 鍒嗘瀽 -->
+          <!-- 分析 -->
           <svg v-else-if="btn.icon === 'analysis'" viewBox="0 0 24 24" width="20" height="20" fill="none">
             <path d="M3 3v16c0 1.1.9 2 2 2h15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             <path d="M7 14l3-5 3 3 4-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <!-- 閿欓闆?-->
+          <!-- 错题集 -->
           <svg v-else-if="btn.icon === 'errors'" viewBox="0 0 24 24" width="20" height="20" fill="none">
             <path d="M12 2L2 20h20L12 2z" stroke="currentColor" stroke-width="1.5"/>
             <line x1="12" y1="10" x2="12" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -119,7 +119,7 @@
             <line x1="9" y1="7" x2="15" y2="7" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity=".4"/>
             <line x1="8" y1="5" x2="15" y2="5" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity=".2"/>
           </svg>
-          <!-- 璇剧▼鏁欏 -->
+          <!-- 课程教学 -->
           <svg v-else-if="btn.icon === 'teaching'" viewBox="0 0 24 24" width="20" height="20" fill="none">
             <path d="M2 3h7c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H2V3z" stroke="currentColor" stroke-width="1.5"/>
             <path d="M10 3h12v18H10" stroke="currentColor" stroke-width="1.5"/>
@@ -129,7 +129,7 @@
             <line x1="14" y1="12" x2="18" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             <line x1="14" y1="16" x2="16" y2="16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          <!-- 璇剧▼杈炬垚搴?-->
+          <!-- 课程达成度 -->
           <svg v-else-if="btn.icon === 'achievement'" viewBox="0 0 24 24" width="20" height="20" fill="none">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
             <circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="1.5"/>
@@ -141,7 +141,7 @@
       </button>
     </div>
 
-    <!-- ==================== Tab 鏍囩鏍?==================== -->
+    <!-- ==================== Tab 标签栏 ==================== -->
     <div class="tab-bar-wrapper">
       <div class="tab-bar" ref="tabBarRef">
         <button
@@ -154,13 +154,13 @@
       </div>
     </div>
 
-    <!-- ==================== 鍐呭鍖哄煙 ==================== -->
+    <!-- ==================== 内容区域 ==================== -->
     <div class="content-area">
-      <!-- 鐩綍 Tab -->
+      <!-- 目录 Tab -->
       <div v-if="activeTab === 'catalog'" class="catalog-panel">
         <div class="catalog-header">
-          <h3 class="catalog-title">璇剧▼鍐呭</h3>
-          <span class="catalog-stats">0涓珷鑺?0涓椿鍔?/span>
+          <h3 class="catalog-title">课程内容</h3>
+          <span class="catalog-stats">0个章节 0个活动</span>
         </div>
         <div class="catalog-empty">
           <svg class="catalog-empty-icon" viewBox="0 0 120 120" fill="none">
@@ -171,19 +171,19 @@
             <circle cx="60" cy="90" r="14" fill="#f0f0f0"/>
             <path d="M56 90h8M60 86v8" stroke="#ccc" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          <p class="catalog-empty-text">璇ヨ绋嬫殏鏃犵珷鑺?/p>
+          <p class="catalog-empty-text">该课程暂无章节</p>
         </div>
       </div>
 
-      <!-- 浣滀笟 Tab -->
+      <!-- 作业 Tab -->
       <div v-else-if="activeTab === 'homework'" class="homework-panel">
         <div class="homework-header">
-          <h3 class="homework-title">浣滀笟鍒楄〃</h3>
-          <button v-if="isTeacher" class="add-hw-btn" @click="addHomework">+ 娣诲姞浣滀笟</button>
+          <h3 class="homework-title">作业列表</h3>
+          <button v-if="isTeacher" class="add-hw-btn" @click="addHomework">+ 添加作业</button>
         </div>
 
         <div v-if="hwLoading" class="homework-empty">
-          <p class="homework-empty-text">鍔犺浇涓?..</p>
+          <p class="homework-empty-text">加载中...</p>
         </div>
         <div v-else-if="homeworks.length === 0" class="homework-empty">
           <svg class="homework-empty-icon" viewBox="0 0 120 120" fill="none">
@@ -192,7 +192,7 @@
             <line x1="40" y1="54" x2="70" y2="54" stroke="#e8e8e8" stroke-width="2.5" stroke-linecap="round"/>
             <line x1="40" y1="66" x2="75" y2="66" stroke="#e8e8e8" stroke-width="2.5" stroke-linecap="round"/>
           </svg>
-          <p class="homework-empty-text">鏆傛棤浣滀笟</p>
+          <p class="homework-empty-text">暂无作业</p>
         </div>
         <div v-else class="homework-list">
           <div v-for="hw in homeworks" :key="hw.hwId" class="homework-card">
@@ -202,17 +202,17 @@
             </div>
             <div class="hw-card-bottom">
               <p class="hw-content">{{ hw.content }}</p>
-              <button class="hw-file-btn" title="鏌ョ湅鏂囦欢" @click="toggleFiles(hw.hwId)">
+              <button class="hw-file-btn" title="查看文件" @click="toggleFiles(hw.hwId)">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
                   <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" stroke="currentColor" stroke-width="1.5"/>
                   <polyline points="13 2 13 9 20 9" stroke="currentColor" stroke-width="1.5"/>
                 </svg>
               </button>
             </div>
-            <!-- 鏂囦欢鍒楄〃 -->
+            <!-- 文件列表 -->
             <div v-if="expandedHwId === hw.hwId" class="hw-files">
-              <div v-if="fileLoadingHwId === hw.hwId" class="hw-files-loading">鍔犺浇涓?..</div>
-              <div v-else-if="!hwFiles[hw.hwId] || hwFiles[hw.hwId].length === 0" class="hw-files-empty">璇ヤ綔涓氭殏鏃犳枃浠?/div>
+              <div v-if="fileLoadingHwId === hw.hwId" class="hw-files-loading">加载中...</div>
+              <div v-else-if="!hwFiles[hw.hwId] || hwFiles[hw.hwId].length === 0" class="hw-files-empty">该作业暂无文件</div>
               <a v-else v-for="f in hwFiles[hw.hwId]" :key="f.fileId"
                  class="hw-file-link" :href="f.filePath" target="_blank" rel="noopener">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
@@ -226,23 +226,23 @@
         </div>
       </div>
 
-      <!-- 鍏朵粬 Tab 鍗犱綅 -->
+      <!-- 其他 Tab 占位 -->
       <div v-else class="tab-placeholder">
         <svg class="tab-placeholder-icon" viewBox="0 0 100 100" fill="none">
           <circle cx="50" cy="45" r="22" stroke="#e0e0e0" stroke-width="2" fill="#fafafa"/>
           <path d="M42 45h16M50 37v16" stroke="#ccc" stroke-width="2.5" stroke-linecap="round"/>
         </svg>
-        <p class="tab-placeholder-text">{{ currentTabLabel }}鍔熻兘寮€鍙戜腑锛屾帴鍙ｅ凡棰勭暀</p>
+        <p class="tab-placeholder-text">{{ currentTabLabel }}功能开发中，接口已预留</p>
       </div>
     </div>
 
-    <!-- 鍔犺浇 -->
+    <!-- 加载 -->
     <div v-if="loading" class="page-loading">
-      <p>鍔犺浇涓?..</p>
+      <p>加载中...</p>
     </div>
     <div v-else-if="error" class="page-error">
       <p>{{ error }}</p>
-      <button @click="loadDetail">閲嶈瘯</button>
+      <button @click="loadDetail">重试</button>
     </div>
   </div>
 </template>
@@ -261,7 +261,7 @@ const loading = ref(true)
 const error = ref('')
 const activeTab = ref('catalog')
 
-// ============ 浣滀笟 ============
+// ============ 作业 ============
 const homeworks = ref([])
 const hwLoading = ref(false)
 
@@ -271,23 +271,23 @@ async function loadHomeworks() {
     const res = await api.getHomeworkList(props.courseId)
     homeworks.value = res.data?.records || []
   } catch (e) {
-    console.error('鍔犺浇浣滀笟鍒楄〃澶辫触:', e)
+    console.error('加载作业列表失败:', e)
   } finally {
     hwLoading.value = false
   }
 }
 
 function formatDate(dateStr) {
-  if (!dateStr) return '鏃犳埅姝㈡棩鏈?
+  if (!dateStr) return '无截止日期'
   const d = new Date(dateStr)
   const month = d.getMonth() + 1
   const day = d.getDate()
   const hour = String(d.getHours()).padStart(2, '0')
   const min = String(d.getMinutes()).padStart(2, '0')
-  return `${month}鏈?{day}鏃?${hour}:${min}`
+  return `${month}月${day}日 ${hour}:${min}`
 }
 
-// ============ 浣滀笟鏂囦欢 ============
+// ============ 作业文件 ============
 const hwFiles = ref({})
 const expandedHwId = ref(null)
 const fileLoadingHwId = ref(null)
@@ -298,58 +298,59 @@ async function toggleFiles(hwId) {
     return
   }
   expandedHwId.value = hwId
-  if (hwFiles.value[hwId]) return // 宸插姞杞借繃
+  if (hwFiles.value[hwId]) return // 已加载过
   fileLoadingHwId.value = hwId
   try {
     const res = await api.getHomeworkFiles(hwId)
     hwFiles.value[hwId] = res.data || []
   } catch (e) {
-    console.error('鍔犺浇浣滀笟鏂囦欢澶辫触:', e)
+    console.error('加载作业文件失败:', e)
     hwFiles.value[hwId] = []
   } finally {
     fileLoadingHwId.value = null
   }
 }
 
-/** 浠庢枃浠惰矾寰勫拰绫诲瀷鐢熸垚灞曠ず鏍囩 */
+/** 从文件路径和类型生成展示标签 */
 function hwFileLabel(f) {
   const path = f.filePath || ''
   const type = f.fileType || ''
-  const name = path.split('/').pop() || '鏂囦欢'
+  const name = path.split('/').pop() || '文件'
   return type ? `${decodeURIComponent(name)} (${type})` : decodeURIComponent(name)
 }
 
-// 鍒囨崲鍒颁綔涓?Tab 鏃跺姞杞芥暟鎹?watch(activeTab, (val) => {
+// 切换到作业 Tab 时加载数据
+watch(activeTab, (val) => {
   if (val === 'homework') loadHomeworks()
 })
 
 const tabs = [
-  { key: 'catalog',     label: '鐩綍' },
-  { key: 'courseware',  label: '浜掑姩璇句欢' },
-  { key: 'homework',    label: '浣滀笟' },
-  { key: 'test',        label: '娴嬭瘯' },
-  { key: 'material',    label: '璧勬枡' },
-  { key: 'meeting',     label: '鑵捐浼氳' },
-  { key: 'notice',      label: '鍏憡' },
-  { key: 'topic',       label: '璇濋' },
-  { key: 'qa',          label: '浜掑姩绛旈' },
-  { key: 'case',        label: '妗堜緥瀛︿範' }
+  { key: 'catalog',     label: '目录' },
+  { key: 'courseware',  label: '互动课件' },
+  { key: 'homework',    label: '作业' },
+  { key: 'test',        label: '测试' },
+  { key: 'material',    label: '资料' },
+  { key: 'meeting',     label: '腾讯会议' },
+  { key: 'notice',      label: '公告' },
+  { key: 'topic',       label: '话题' },
+  { key: 'qa',          label: '互动答题' },
+  { key: 'case',        label: '案例学习' }
 ]
 
 const isTeacher = computed(() => course.value?.userRole === 'teacher')
 
 const studentFuncButtons = [
-  { type: 'attendance',  label: '鑰冨嫟',   icon: 'attendance' },
-  { type: 'performance', label: '琛ㄧ幇',   icon: 'performance' },
-  { type: 'grades',      label: '鎴愮哗',   icon: 'grades' },
-  { type: 'analysis',    label: '瀛︿範鍒嗘瀽', icon: 'analysis' },
-  { type: 'errors',      label: '閿欓闆?,  icon: 'errors' }
+  { type: 'attendance',  label: '考勤',   icon: 'attendance' },
+  { type: 'performance', label: '表现',   icon: 'performance' },
+  { type: 'grades',      label: '成绩',   icon: 'grades' },
+  { type: 'analysis',    label: '学习分析', icon: 'analysis' },
+  { type: 'errors',      label: '错题集',  icon: 'errors' }
 ]
 const teacherFuncButtons = [
-  { type: 'teaching',    label: '璇剧▼鏁欏', icon: 'teaching' },
-  { type: 'analysis',    label: '瀛︽儏鍒嗘瀽', icon: 'analysis' },
-  { type: 'grades',      label: '鎴愮哗绠＄悊', icon: 'grades' },
-  { type: 'achievement', label: '璇剧▼杈炬垚搴?, icon: 'achievement' }
+  { type: 'teaching',    label: '课程教学', icon: 'teaching' },
+  { type: 'analysis',    label: '学情分析', icon: 'analysis' },
+  { type: 'grades',      label: '成绩管理', icon: 'grades' },
+  { type: 'achievement', label: '课程达成度', icon: 'achievement' }
 ]
 const funcButtons = computed(() => isTeacher.value ? teacherFuncButtons : studentFuncButtons)
 
@@ -371,33 +372,33 @@ const classText = computed(() => {
   const parts = []
   if (course.value?.semester) parts.push(course.value.semester)
   if (course.value?.courseIntro) parts.push(course.value.courseIntro)
-  return parts.join(' 路 ') || '鐝骇淇℃伅'
+  return parts.join(' · ') || '班级信息'
 })
 
-// ============ 鍔熻兘鎸夐挳锛堥鐣欐帴鍙ｏ級 ============
+// ============ 功能按钮（预留接口） ============
 function handleFunc(type) {
   const map = {
-    attendance:  { api: '/api/course/{id}/attendance', label: '鑰冨嫟' },
-    performance: { api: '/api/course/{id}/performance', label: '琛ㄧ幇' },
-    grades:      { api: '/api/course/{id}/grades', label: '鎴愮哗' },
-    analysis:    { api: '/api/course/{id}/analysis', label: '鍒嗘瀽' },
-    errors:      { api: '/api/course/{id}/errors', label: '閿欓闆? },
-    teaching:    { api: '/api/course/{id}/teaching', label: '璇剧▼鏁欏' },
-    achievement: { api: '/api/course/{id}/achievement', label: '璇剧▼杈炬垚搴? }
+    attendance:  { api: '/api/course/{id}/attendance', label: '考勤' },
+    performance: { api: '/api/course/{id}/performance', label: '表现' },
+    grades:      { api: '/api/course/{id}/grades', label: '成绩' },
+    analysis:    { api: '/api/course/{id}/analysis', label: '分析' },
+    errors:      { api: '/api/course/{id}/errors', label: '错题集' },
+    teaching:    { api: '/api/course/{id}/teaching', label: '课程教学' },
+    achievement: { api: '/api/course/{id}/achievement', label: '课程达成度' }
   }
   const info = map[type]
-  console.log(`[棰勭暀鎺ュ彛] ${info.label}: ${info.api.replace('{id}', props.courseId)}`)
+  console.log(`[预留接口] ${info.label}: ${info.api.replace('{id}', props.courseId)}`)
 }
 
 function addHomework() {
-  // TODO: 寮瑰嚭鍒涘缓浣滀笟琛ㄥ崟
-  console.log(`[棰勭暀鎺ュ彛] 鍒涘缓浣滀笟: POST /api/homework/course/${props.courseId}`)
+  // TODO: 弹出创建作业表单
+  console.log(`[预留接口] 创建作业: POST /api/homework/course/${props.courseId}`)
 }
 
 function copyCode() {
   if (!course.value?.courseCode) return
   navigator.clipboard.writeText(course.value.courseCode).then(() => {
-    alert('鍔犺鐮佸凡澶嶅埗')
+    alert('加课码已复制')
   }).catch(() => {
     const input = document.createElement('input')
     input.value = course.value.courseCode
@@ -405,7 +406,7 @@ function copyCode() {
     input.select()
     document.execCommand('copy')
     document.body.removeChild(input)
-    alert('鍔犺鐮佸凡澶嶅埗')
+    alert('加课码已复制')
   })
 }
 
@@ -416,7 +417,7 @@ async function loadDetail() {
     const res = await api.getCourseDetail(props.courseId)
     course.value = res.data
   } catch (e) {
-    error.value = e.message || '鍔犺浇澶辫触'
+    error.value = e.message || '加载失败'
   } finally {
     loading.value = false
   }
@@ -532,7 +533,7 @@ onMounted(() => { loadDetail() })
   color: rgba(255,255,255,.7);
 }
 
-/* ==================== 鍔熻兘鎸夐挳 ==================== */
+/* ==================== 功能按钮 ==================== */
 .func-buttons {
   display: flex;
   justify-content: space-around;
@@ -569,7 +570,7 @@ onMounted(() => { loadDetail() })
   white-space: nowrap;
 }
 
-/* ==================== Tab 鏍?==================== */
+/* ==================== Tab 栏 ==================== */
 .tab-bar-wrapper {
   background: #fff;
   border-bottom: 1px solid #f0f0f0;
@@ -610,13 +611,13 @@ onMounted(() => { loadDetail() })
   background: #2377E4;
 }
 
-/* ==================== 鍐呭鍖哄煙 ==================== */
+/* ==================== 内容区域 ==================== */
 .content-area {
   background: #fff;
   min-height: 400px;
 }
 
-/* 鐩綍闈㈡澘 */
+/* 目录面板 */
 .catalog-panel {
   padding: 16px;
 }
@@ -651,7 +652,7 @@ onMounted(() => { loadDetail() })
   color: #aaa;
 }
 
-/* 浣滀笟闈㈡澘 */
+/* 作业面板 */
 .homework-panel {
   padding: 16px;
 }
@@ -684,7 +685,7 @@ onMounted(() => { loadDetail() })
 .add-hw-btn:hover { opacity: .9; }
 .add-hw-btn:active { transform: scale(.97); }
 
-/* 浣滀笟鍒楄〃 */
+/* 作业列表 */
 .homework-list {
   display: flex;
   flex-direction: column;
@@ -732,7 +733,7 @@ onMounted(() => { loadDetail() })
   overflow: hidden;
 }
 
-/* 鏂囦欢鎸夐挳 */
+/* 文件按钮 */
 .hw-file-btn {
   flex-shrink: 0;
   width: 30px;
@@ -749,7 +750,7 @@ onMounted(() => { loadDetail() })
 }
 .hw-file-btn:hover { background: #2377E4; color: #fff; }
 
-/* 灞曞紑鐨勬枃浠跺垪琛?*/
+/* 展开的文件列表 */
 .hw-files {
   margin-top: 10px;
   padding-top: 10px;
@@ -775,7 +776,7 @@ onMounted(() => { loadDetail() })
 .hw-file-link + .hw-file-link { margin-top: 4px; }
 .hw-file-link:hover { background: #eef2ff; }
 
-/* 浣滀笟绌虹姸鎬?*/
+/* 作业空状态 */
 .homework-empty {
   display: flex;
   flex-direction: column;
@@ -792,7 +793,7 @@ onMounted(() => { loadDetail() })
   color: #bbb;
 }
 
-/* 鍗犱綅 Tab */
+/* 占位 Tab */
 .tab-placeholder {
   display: flex;
   flex-direction: column;
@@ -809,7 +810,7 @@ onMounted(() => { loadDetail() })
   color: #bbb;
 }
 
-/* 鍔犺浇/閿欒 */
+/* 加载/错误 */
 .page-loading, .page-error {
   text-align: center;
   padding: 80px 0;
