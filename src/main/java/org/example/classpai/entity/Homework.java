@@ -17,6 +17,8 @@ public class Homework {
 
     private String content;
 
+    private LocalDateTime startTime;
+
     private LocalDateTime deadline;
 
     @TableField(fill = FieldFill.INSERT)

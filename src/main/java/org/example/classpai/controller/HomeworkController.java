@@ -11,6 +11,7 @@ import org.example.classpai.entity.Submission;
 import org.example.classpai.entity.User;
 import org.example.classpai.service.HomeworkService;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/homework")
@@ -22,11 +23,22 @@ public class HomeworkController {
         this.homeworkService = homeworkService;
     }
 
+    /** 教师布置作业（接收文件上传） */
     @PostMapping("/course/{courseId}")
-    public Result<Homework> create(@PathVariable Long courseId, @RequestBody HomeworkDTO dto,
-                                    HttpServletRequest request) {
+    public Result<Homework> create(@PathVariable Long courseId,
+                                   @RequestParam String title,
+                                   @RequestParam String content,
+                                   @RequestParam(required = false) Long startTime,
+                                   @RequestParam(required = false) Long deadline,
+                                   @RequestParam(required = false) MultipartFile[] files,
+                                   HttpServletRequest request) {
         User user = (User) request.getAttribute("currentUser");
-        return homeworkService.createHomework(courseId, dto, user);
+        HomeworkDTO dto = new HomeworkDTO();
+        dto.setTitle(title);
+        dto.setContent(content);
+        dto.setStartTime(startTime);
+        dto.setDeadline(deadline);
+        return homeworkService.createHomework(courseId, dto, files, user);
     }
 
     @GetMapping("/course/{courseId}")
