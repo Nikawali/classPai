@@ -8,11 +8,12 @@ import org.example.classpai.dto.SubmissionDTO;
 import org.example.classpai.entity.Homework;
 import org.example.classpai.entity.Submission;
 import org.example.classpai.entity.User;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface HomeworkService {
 
-    /** 教师布置作业 */
-    Result<Homework> createHomework(Long courseId, HomeworkDTO dto, User user);
+    /** 教师布置作业（含文件上传） */
+    Result<Homework> createHomework(Long courseId, HomeworkDTO dto, MultipartFile[] files, User user);
 
     /** 查看某课程作业列表 */
     PageResult<Homework> listHomework(Long courseId, int page, int pageSize);

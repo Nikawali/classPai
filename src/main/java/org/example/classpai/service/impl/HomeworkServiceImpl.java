@@ -12,21 +12,37 @@ import org.example.classpai.entity.*;
 import org.example.classpai.mapper.*;
 import org.example.classpai.service.HomeworkService;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.UUID;
 
 @Service
 public class HomeworkServiceImpl implements HomeworkService {
 
+    private static final String UPLOAD_DIR = System.getProperty("user.dir") + File.separator + "uploads" + File.separator + "homework";
+
     private final HomeworkMapper homeworkMapper;
     private final SubmissionMapper submissionMapper;
     private final UserCourseMapper userCourseMapper;
+    private final HomeworkFileMapper homeworkFileMapper;
 
     public HomeworkServiceImpl(HomeworkMapper homeworkMapper,
                                SubmissionMapper submissionMapper,
                                CourseMapper courseMapper,
-                               UserCourseMapper userCourseMapper) {
+                               UserCourseMapper userCourseMapper,
+                               HomeworkFileMapper homeworkFileMapper) {
         this.homeworkMapper = homeworkMapper;
         this.submissionMapper = submissionMapper;
         this.userCourseMapper = userCourseMapper;
+        this.homeworkFileMapper = homeworkFileMapper;
     }
 
     /** 校验用户是否该课程教师 */
@@ -41,15 +57,55 @@ public class HomeworkServiceImpl implements HomeworkService {
     }
 
     @Override
-    public Result<Homework> createHomework(Long courseId, HomeworkDTO dto, User user) {
+    public Result<Homework> createHomework(Long courseId, HomeworkDTO dto, MultipartFile[] files, User user) {
         checkTeacher(courseId, user.getUserId());
 
+        // 1. 写入 homework 表
         Homework hw = new Homework();
         hw.setCourseId(courseId);
         hw.setTitle(dto.getTitle());
         hw.setContent(dto.getContent());
-        hw.setDeadline(dto.getDeadline());
+        if (dto.getStartTime() != null) {
+            hw.setStartTime(LocalDateTime.ofInstant(Instant.ofEpochSecond(dto.getStartTime()), ZoneId.systemDefault()));
+        }
+        if (dto.getDeadline() != null) {
+            hw.setDeadline(LocalDateTime.ofInstant(Instant.ofEpochSecond(dto.getDeadline()), ZoneId.systemDefault()));
+        }
         homeworkMapper.insert(hw);
+
+        // 2. 保存文件到服务器，写入 homework_file 表
+        if (files != null && files.length > 0) {
+            File dir = new File(UPLOAD_DIR);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            for (MultipartFile file : files) {
+                if (file.isEmpty()) continue;
+                try {
+                    // 提取文件信息
+                    String originalName = file.getOriginalFilename();
+                    String ext = "";
+                    if (originalName != null && originalName.contains(".")) {
+                        ext = originalName.substring(originalName.lastIndexOf("."));
+                    }
+                    String newName = UUID.randomUUID().toString() + ext;
+                    Path dest = Paths.get(UPLOAD_DIR, newName);
+                    Files.copy(file.getInputStream(), dest);
+
+                    // 写入 homework_file 表
+                    HomeworkFile hf = new HomeworkFile();
+                    hf.setHwId(hw.getHwId());
+                    hf.setFilePath("/uploads/homework/" + newName);
+                    hf.setFileSize(file.getSize());
+                    hf.setFileType(ext.isEmpty() ? null : ext.replace(".", ""));
+                    hf.setUploadTime(LocalDateTime.now());
+                    homeworkFileMapper.insert(hf);
+                } catch (IOException e) {
+                    throw new BusinessException(500, "文件保存失败: " + e.getMessage());
+                }
+            }
+        }
+
         return Result.success(hw);
     }
 
