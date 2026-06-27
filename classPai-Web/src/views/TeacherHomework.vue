@@ -30,7 +30,7 @@
             <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
             <polyline points="12,7 12,12 16,14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          <span>截止 {{ formatDeadline(homework.deadline) }}</span>
+          <span>截止 {{ fmtDeadline(homework.deadline) }}</span>
         </div>
         <div class="th-actions-right">
           <!-- 设置下拉 -->
@@ -177,6 +177,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/request.js'
+import { fmtDeadline } from '../utils/format.js'
 
 const props = defineProps({
   hwId: { type: [Number, String], required: true }

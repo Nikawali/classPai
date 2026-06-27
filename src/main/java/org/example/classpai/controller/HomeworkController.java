@@ -105,4 +105,18 @@ public class HomeworkController {
         User user = (User) request.getAttribute("currentUser");
         return homeworkService.getGradingList(hwId, user);
     }
+
+    /** 学生端：获取作业详情（含提交记录、文件、状态） */
+    @GetMapping("/{hwId}/student")
+    public Result<?> studentDetail(@PathVariable Long hwId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return homeworkService.getStudentHomeworkDetail(hwId, user);
+    }
+
+    /** 学生端：获取提交页数据 */
+    @GetMapping("/{hwId}/submit-page")
+    public Result<?> submitPage(@PathVariable Long hwId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return homeworkService.getSubmitPageData(hwId, user);
+    }
 }
