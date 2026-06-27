@@ -13,8 +13,6 @@ public class SubmitFile {
 
     private Long submitId;
 
-    private String fileName;
-
     private String filePath;
 
     private Long fileSize;

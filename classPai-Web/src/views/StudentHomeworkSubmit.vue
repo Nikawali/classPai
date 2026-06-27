@@ -38,10 +38,10 @@
       <h3 class="shs-section-title">作业要求</h3>
       <div class="shs-desc">{{ data.content || '暂无内容描述' }}</div>
 
-      <div v-if="data.teacherFiles && data.teacherFiles.length" class="shs-files-section">
-        <h4>教师附件 ({{ data.teacherFiles.length }})</h4>
+      <div v-if="data.files && data.files.length" class="shs-files-section">
+        <h4>教师附件 ({{ data.files.length }})</h4>
         <div class="file-list">
-          <div v-for="f in data.teacherFiles" :key="f.fileId" class="file-item">
+          <div v-for="f in data.files" :key="f.fileId" class="file-item">
             <span class="file-name" :title="f.fileName">{{ f.fileName }}</span>
             <span class="file-size">{{ fmtSize(f.fileSize) }}</span>
             <a v-if="f.filePath" :href="'/' + f.filePath" target="_blank" class="file-dl">⬇</a>
@@ -106,7 +106,7 @@
           <div v-if="sub.submitContent" class="sub-content">{{ sub.submitContent }}</div>
           <div v-if="sub.files && sub.files.length" class="sub-files">
             <span v-for="sf in sub.files" :key="sf.sFileId" class="sub-file-chip">
-              📎 {{ sf.fileName }}
+              📎 {{ (sf.filePath || '').split('/').pop() }}
             </span>
           </div>
           <div v-if="sub.score != null" class="sub-grade">
@@ -215,9 +215,7 @@ async function doSubmit() {
   }
   submitting.value = true; submitError.value = ''
   try {
-    await api.submitHomework(props.homeworkId, {
-      content: submitContent.value.trim()
-    })
+    await api.submitHomework(props.homeworkId, submitContent.value.trim(), selectedFiles.value)
     // 成功后清空表单 + 重新加载
     submitContent.value = ''
     selectedFiles.value = []

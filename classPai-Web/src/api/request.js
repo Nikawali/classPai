@@ -6,12 +6,17 @@ function getToken() {
 
 async function request(url, options = {}) {
   const token = getToken()
-  const config = {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
-  }
+  const headers = {}
   if (token) {
-    config.headers['Authorization'] = 'Bearer ' + token
+    headers['Authorization'] = 'Bearer ' + token
+  }
+  // FormData 不设置 Content-Type，浏览器会自动设置 multipart/form-data + boundary
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json'
+  }
+  const config = {
+    headers,
+    ...options
   }
   const res = await fetch(BASE_URL + url, config)
   const data = await res.json()
@@ -160,11 +165,16 @@ export const api = {
   getSubmitPageData(hwId) {
     return request(`/homework/${hwId}/submit-page`)
   },
-  /** 学生端：提交作业 */
-  submitHomework(hwId, body) {
+  /** 学生端：提交作业（支持文件上传） */
+  submitHomework(hwId, content, files) {
+    const formData = new FormData()
+    if (content) formData.append('content', content)
+    if (files && files.length) {
+      files.forEach(f => formData.append('files', f))
+    }
     return request(`/homework/${hwId}/submit`, {
       method: 'POST',
-      body: JSON.stringify(body)
+      body: formData
     })
   },
   // ========== 课程功能按钮（预留） ==========

@@ -6,12 +6,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.example.classpai.common.PageResult;
 import org.example.classpai.common.Result;
 import org.example.classpai.common.exception.BusinessException;
-import org.example.classpai.dto.GradeDTO;
-import org.example.classpai.dto.HomeworkDTO;
-import org.example.classpai.dto.SubmissionDTO;
+import org.example.classpai.dto.*;
 import org.example.classpai.entity.*;
 import org.example.classpai.mapper.*;
 import org.example.classpai.service.HomeworkService;
+import org.example.classpai.vo.HomeworkListVO;
+import org.example.classpai.vo.StudentHomeworkVO;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -19,7 +20,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -35,7 +35,7 @@ import java.util.UUID;
 @Service
 public class HomeworkServiceImpl implements HomeworkService {
 
-    private static final String UPLOAD_DIR = System.getProperty("user.dir") + File.separator + "uploads" + File.separator + "homework";
+    private static final String UPLOAD_BASE = System.getProperty("user.dir") + File.separator + "uploads";
 
     @Value("${deepseek.api.url}")
     private String apiUrl;
@@ -47,6 +47,7 @@ public class HomeworkServiceImpl implements HomeworkService {
     private final SubmissionMapper submissionMapper;
     private final UserCourseMapper userCourseMapper;
     private final HomeworkFileMapper homeworkFileMapper;
+    private final SubmitFileMapper submitFileMapper;
     private final RestTemplate restTemplate;
     private final CourseMapper courseMapper;
 
@@ -54,12 +55,14 @@ public class HomeworkServiceImpl implements HomeworkService {
                                SubmissionMapper submissionMapper,
                                UserCourseMapper userCourseMapper,
                                HomeworkFileMapper homeworkFileMapper,
+                               SubmitFileMapper submitFileMapper,
                                RestTemplate restTemplate,
                                CourseMapper courseMapper) {
         this.homeworkMapper = homeworkMapper;
         this.submissionMapper = submissionMapper;
         this.userCourseMapper = userCourseMapper;
         this.homeworkFileMapper = homeworkFileMapper;
+        this.submitFileMapper = submitFileMapper;
         this.restTemplate = restTemplate;
         this.courseMapper = courseMapper;
     }
@@ -71,6 +74,42 @@ public class HomeworkServiceImpl implements HomeworkService {
          .eq(UserCourse::getRole, "teacher");
         if (userCourseMapper.selectCount(w) == 0) {
             throw new BusinessException(403, "无权操作");
+        }
+    }
+
+    @FunctionalInterface
+    private interface FileEntitySaver {
+        void save(String newName, String filePath, long fileSize, String fileType);
+    }
+
+    /**
+     * 保存上传文件到磁盘并回调创建对应实体记录
+     * @param files  上传文件数组
+     * @param subDir 子目录名，如 "homework"、"submit"
+     * @param saver  实体创建回调（接收 newName, filePath, fileSize, fileType）
+     */
+    private void saveFiles(MultipartFile[] files, String subDir, FileEntitySaver saver) {
+        if (files == null || files.length == 0) return;
+        for (MultipartFile file : files) {
+            if (file.isEmpty()) continue;
+            try {
+                String dirPath = UPLOAD_BASE + File.separator + subDir;
+                File dir = new File(dirPath);
+                if (!dir.exists()) dir.mkdirs();
+                String originalName = file.getOriginalFilename();
+                String ext = "";
+                if (originalName != null && originalName.contains(".")) {
+                    ext = originalName.substring(originalName.lastIndexOf("."));
+                }
+                String newName = UUID.randomUUID() + ext;
+                Path dest = Paths.get(dirPath, newName);
+                Files.copy(file.getInputStream(), dest);
+                String filePath = "/uploads/" + subDir + "/" + newName;
+                String fileType = ext.isEmpty() ? null : ext.replace(".", "");
+                saver.save(newName, filePath, file.getSize(), fileType);
+            } catch (IOException e) {
+                throw new BusinessException(500, "文件保存失败: " + e.getMessage());
+            }
         }
     }
 
@@ -88,45 +127,33 @@ public class HomeworkServiceImpl implements HomeworkService {
             hw.setDeadline(LocalDateTime.ofInstant(Instant.ofEpochSecond(dto.getDeadline()), ZoneId.systemDefault()));
         }
         homeworkMapper.insert(hw);
-        if (files != null && files.length > 0) {
-            File dir = new File(UPLOAD_DIR);
-            if (!dir.exists()) dir.mkdirs();
-            for (MultipartFile file : files) {
-                if (file.isEmpty()) continue;
-                try {
-                    String originalName = file.getOriginalFilename();
-                    String ext = "";
-                    if (originalName != null && originalName.contains(".")) {
-                        ext = originalName.substring(originalName.lastIndexOf("."));
-                    }
-                    String newName = UUID.randomUUID() + ext;
-                    Path dest = Paths.get(UPLOAD_DIR, newName);
-                    Files.copy(file.getInputStream(), dest);
-                    HomeworkFile hf = new HomeworkFile();
-                    hf.setHwId(hw.getHwId());
-                    hf.setFilePath("/uploads/homework/" + newName);
-                    hf.setFileSize(file.getSize());
-                    hf.setFileType(ext.isEmpty() ? null : ext.replace(".", ""));
-                    hf.setUploadTime(LocalDateTime.now());
-                    homeworkFileMapper.insert(hf);
-                } catch (IOException e) {
-                    throw new BusinessException(500, "文件保存失败: " + e.getMessage());
-                }
-            }
-        }
+        saveFiles(files, "homework", (newName, filePath, fileSize, fileType) -> {
+            HomeworkFile hf = new HomeworkFile();
+            hf.setHwId(hw.getHwId());
+            hf.setFilePath(filePath);
+            hf.setFileSize(fileSize);
+            hf.setFileType(fileType);
+            hf.setUploadTime(LocalDateTime.now());
+            homeworkFileMapper.insert(hf);
+        });
         return Result.success(hw);
     }
 
     @Override
-    public PageResult<Homework> listHomework(Long courseId, User user, int page, int pageSize) {
+    public PageResult<HomeworkListVO> listHomework(Long courseId, User user, int page, int pageSize) {
         LambdaQueryWrapper<Homework> w = new LambdaQueryWrapper<>();
         w.eq(Homework::getCourseId, courseId).orderByDesc(Homework::getCreateTime);
         Page<Homework> p = homeworkMapper.selectPage(new Page<>(page, pageSize), w);
         List<Homework> records = p.getRecords();
-        if (records.isEmpty()) {
-            return PageResult.of(p.getTotal(), records, p.getCurrent(), p.getSize());
+        List<HomeworkListVO> voList = records.stream().map(hw -> {
+            HomeworkListVO vo = new HomeworkListVO();
+            BeanUtils.copyProperties(hw, vo);
+            return vo;
+        }).collect(Collectors.toList());
+        if (voList.isEmpty()) {
+            return PageResult.of(p.getTotal(), voList, p.getCurrent(), p.getSize());
         }
-        List<Long> hwIds = records.stream().map(Homework::getHwId).collect(Collectors.toList());
+        List<Long> hwIds = voList.stream().map(HomeworkListVO::getHwId).collect(Collectors.toList());
         String courseRole = userCourseMapper.selectOne(
                 new LambdaQueryWrapper<UserCourse>()
                         .eq(UserCourse::getCourseId, courseId)
@@ -145,22 +172,22 @@ public class HomeworkServiceImpl implements HomeworkService {
                     .collect(Collectors.toMap(
                             m -> ((Number) m.get("hw_id")).longValue(),
                             m -> ((Number) m.get("total")).intValue()));
-            for (Homework hw : records) {
-                hw.setTotalStudents((int) totalStudents);
-                hw.setSubmitCount(submitMap.getOrDefault(hw.getHwId(), 0));
-                hw.setGradedCount(gradedMap.getOrDefault(hw.getHwId(), 0));
+            for (HomeworkListVO vo : voList) {
+                vo.setTotalStudents((int) totalStudents);
+                vo.setSubmitCount(submitMap.getOrDefault(vo.getHwId(), 0));
+                vo.setGradedCount(gradedMap.getOrDefault(vo.getHwId(), 0));
             }
         } else {
             Set<Long> submittedSet = new HashSet<>(submissionMapper.findSubmittedHwIds(hwIds, user.getUserId()));
-            for (Homework hw : records) {
-                hw.setSubmitted(submittedSet.contains(hw.getHwId()));
+            for (HomeworkListVO vo : voList) {
+                vo.setSubmitted(submittedSet.contains(vo.getHwId()));
             }
         }
-        return PageResult.of(p.getTotal(), records, p.getCurrent(), p.getSize());
+        return PageResult.of(p.getTotal(), voList, p.getCurrent(), p.getSize());
     }
 
     @Override
-    public Result<Submission> submit(Long hwId, SubmissionDTO dto, User user) {
+    public Result<Submission> submit(Long hwId, String content, MultipartFile[] files, User user) {
         Homework hw = homeworkMapper.selectById(hwId);
         if (hw == null) throw new BusinessException(404, "作业不存在");
         Long submittedCount = submissionMapper.selectCount(
@@ -173,8 +200,17 @@ public class HomeworkServiceImpl implements HomeworkService {
         Submission sub = new Submission();
         sub.setHwId(hwId);
         sub.setStudentId(user.getUserId());
-        sub.setSubmitContent(dto.getContent());
+        sub.setSubmitContent(content);
         submissionMapper.insert(sub);
+        saveFiles(files, "submit", (newName, filePath, fileSize, fileType) -> {
+            SubmitFile sf = new SubmitFile();
+            sf.setSubmitId(sub.getSubmitId());
+            sf.setFilePath(filePath);
+            sf.setFileSize(fileSize);
+            sf.setFileType(fileType);
+            sf.setUploadTime(LocalDateTime.now());
+            submitFileMapper.insert(sf);
+        });
         return Result.success(sub);
     }
 
@@ -285,61 +321,58 @@ public class HomeworkServiceImpl implements HomeworkService {
     }
 
     @Override
-    public Result<?> getStudentHomeworkDetail(Long hwId, User user) {
+    public Result<StudentHomeworkVO> getStudentHomeworkDetail(Long hwId, User user) {
         Homework hw = homeworkMapper.selectById(hwId);
         if (hw == null) throw new BusinessException(404, "作业不存在");
         checkMembership(hw.getCourseId(), user.getUserId());
         Course course = courseMapper.selectById(hw.getCourseId());
-        List<HomeworkFile> files = homeworkFileMapper.selectList(
-                new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hwId));
-        List<Submission> submissions = submissionMapper.selectList(
+        StudentHomeworkVO vo = new StudentHomeworkVO();
+        BeanUtils.copyProperties(hw, vo);
+        vo.setCourseName(course != null ? course.getCourseName() : "");
+        vo.setTotalScore(hw.getTotalScore() != null ? hw.getTotalScore() : 100);
+        vo.setFiles(homeworkFileMapper.selectList(
+                new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hwId)));
+        for (HomeworkFile f : vo.getFiles()) {
+            String name = f.getFilePath() != null ? f.getFilePath().substring(f.getFilePath().lastIndexOf("/") + 1) : "";
+            f.setOriginalName(name);
+            f.setFileName(name);
+        }
+        vo.setSubmissions(submissionMapper.selectList(
                 new LambdaQueryWrapper<Submission>()
                         .eq(Submission::getHwId, hwId)
                         .eq(Submission::getStudentId, user.getUserId())
-                        .orderByDesc(Submission::getSubmitTime));
-        String submitStatus = calcSubmitStatus(hw, submissions);
-        Double latestScore = null;
-        if (!submissions.isEmpty() && submissions.get(0).getScore() != null) {
-            latestScore = submissions.get(0).getScore().doubleValue();
+                        .orderByDesc(Submission::getSubmitTime)));
+        vo.setSubmitStatus(calcSubmitStatus(hw, vo.getSubmissions()));
+        if (!vo.getSubmissions().isEmpty() && vo.getSubmissions().get(0).getScore() != null) {
+            vo.setLatestScore(vo.getSubmissions().get(0).getScore().doubleValue());
         }
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("title", hw.getTitle());
-        result.put("content", hw.getContent());
-        result.put("courseName", course != null ? course.getCourseName() : "");
-        result.put("startTime", hw.getStartTime());
-        result.put("deadline", hw.getDeadline());
-        result.put("totalScore", hw.getTotalScore() != null ? hw.getTotalScore() : 100);
-        result.put("files", files);
-        result.put("submissions", submissions);
-        result.put("submitStatus", submitStatus);
-        result.put("latestScore", latestScore);
-        return Result.success(result);
+        return Result.success(vo);
     }
 
     @Override
-    public Result<?> getSubmitPageData(Long hwId, User user) {
+    public Result<StudentHomeworkVO> getSubmitPageData(Long hwId, User user) {
         Homework hw = homeworkMapper.selectById(hwId);
         if (hw == null) throw new BusinessException(404, "作业不存在");
         checkMembership(hw.getCourseId(), user.getUserId());
         Course course = courseMapper.selectById(hw.getCourseId());
-        List<HomeworkFile> files = homeworkFileMapper.selectList(
-                new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hwId));
-        List<Submission> submissions = submissionMapper.selectList(
+        StudentHomeworkVO vo = new StudentHomeworkVO();
+        BeanUtils.copyProperties(hw, vo);
+        vo.setCourseName(course != null ? course.getCourseName() : "");
+        vo.setTotalScore(hw.getTotalScore() != null ? hw.getTotalScore() : 100);
+        vo.setFiles(homeworkFileMapper.selectList(
+                new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hwId)));
+        for (HomeworkFile f : vo.getFiles()) {
+            String name = f.getFilePath() != null ? f.getFilePath().substring(f.getFilePath().lastIndexOf("/") + 1) : "";
+            f.setOriginalName(name);
+            f.setFileName(name);
+        }
+        vo.setSubmissions(submissionMapper.selectList(
                 new LambdaQueryWrapper<Submission>()
                         .eq(Submission::getHwId, hwId)
                         .eq(Submission::getStudentId, user.getUserId())
-                        .orderByDesc(Submission::getSubmitTime));
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("title", hw.getTitle());
-        result.put("content", hw.getContent());
-        result.put("courseName", course != null ? course.getCourseName() : "");
-        result.put("startTime", hw.getStartTime());
-        result.put("deadline", hw.getDeadline());
-        result.put("totalScore", hw.getTotalScore() != null ? hw.getTotalScore() : 100);
-        result.put("teacherFiles", files);
-        result.put("submissions", submissions);
-        result.put("submitStatus", calcSubmitStatus(hw, submissions));
-        result.put("submittedCount", submissions.size());
-        return Result.success(result);
+                        .orderByDesc(Submission::getSubmitTime)));
+        vo.setSubmitStatus(calcSubmitStatus(hw, vo.getSubmissions()));
+        vo.setSubmittedCount(vo.getSubmissions().size());
+        return Result.success(vo);
     }
 }

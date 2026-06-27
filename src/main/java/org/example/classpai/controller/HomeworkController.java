@@ -6,11 +6,12 @@ import org.example.classpai.common.PageResult;
 import org.example.classpai.common.Result;
 import org.example.classpai.dto.GradeDTO;
 import org.example.classpai.dto.HomeworkDTO;
-import org.example.classpai.dto.SubmissionDTO;
 import org.example.classpai.entity.Homework;
 import org.example.classpai.entity.HomeworkFile;
 import org.example.classpai.entity.Submission;
 import org.example.classpai.entity.User;
+import org.example.classpai.vo.HomeworkListVO;
+import org.example.classpai.vo.StudentHomeworkVO;
 import org.example.classpai.mapper.HomeworkFileMapper;
 import org.example.classpai.service.HomeworkService;
 import org.springframework.web.bind.annotation.*;
@@ -50,12 +51,12 @@ public class HomeworkController {
     }
 
     @GetMapping("/course/{courseId}")
-    public Result<PageResult<Homework>> list(@PathVariable Long courseId,
+    public Result<PageResult<HomeworkListVO>> list(@PathVariable Long courseId,
                                        @RequestParam(defaultValue = "1") int page,
                                        @RequestParam(defaultValue = "10") int pageSize,
                                        HttpServletRequest request) {
         User user = (User) request.getAttribute("currentUser");
-        PageResult<Homework> pr = homeworkService.listHomework(courseId, user, page, pageSize);
+        PageResult<HomeworkListVO> pr = homeworkService.listHomework(courseId, user, page, pageSize);
         return Result.success(pr);
     }
 
@@ -76,10 +77,12 @@ public class HomeworkController {
     }
 
     @PostMapping("/{hwId}/submit")
-    public Result<Submission> submit(@PathVariable Long hwId, @RequestBody SubmissionDTO dto,
+    public Result<Submission> submit(@PathVariable Long hwId,
+                                      @RequestParam(required = false) String content,
+                                      @RequestParam(required = false) MultipartFile[] files,
                                       HttpServletRequest request) {
         User user = (User) request.getAttribute("currentUser");
-        return homeworkService.submit(hwId, dto, user);
+        return homeworkService.submit(hwId, content, files, user);
     }
 
     @GetMapping("/{hwId}/submissions")

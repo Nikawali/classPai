@@ -21,4 +21,12 @@ public class HomeworkFile {
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime uploadTime;
+
+    /** 瞬态：文件名（从 filePath 提取） */
+    @TableField(exist = false)
+    private String originalName;
+
+    /** 瞬态：文件名（同 originalName，兼容不同前端） */
+    @TableField(exist = false)
+    private String fileName;
 }
