@@ -18,6 +18,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
@@ -62,7 +63,7 @@ public class HomeworkServiceImpl implements HomeworkService {
         this.submissionMapper = submissionMapper;
         this.userCourseMapper = userCourseMapper;
         this.homeworkFileMapper = homeworkFileMapper;
-        this.submitFileMapper = submitFileMapper;
+        this.submitFileMapper=submitFileMapper;
         this.restTemplate = restTemplate;
         this.courseMapper = courseMapper;
     }
@@ -114,6 +115,7 @@ public class HomeworkServiceImpl implements HomeworkService {
     }
 
     @Override
+    @Transactional
     public Result<Homework> createHomework(Long courseId, HomeworkDTO dto, MultipartFile[] files, User user) {
         checkTeacher(courseId, user.getUserId());
         Homework hw = new Homework();
@@ -187,6 +189,7 @@ public class HomeworkServiceImpl implements HomeworkService {
     }
 
     @Override
+    @Transactional
     public Result<Submission> submit(Long hwId, String content, MultipartFile[] files, User user) {
         Homework hw = homeworkMapper.selectById(hwId);
         if (hw == null) throw new BusinessException(404, "作业不存在");
@@ -226,6 +229,7 @@ public class HomeworkServiceImpl implements HomeworkService {
     }
 
     @Override
+    @Transactional
     public Result<?> grade(Long submitId, GradeDTO dto, User user) {
         Submission sub = submissionMapper.selectById(submitId);
         if (sub == null) throw new BusinessException(404, "提交记录不存在");
