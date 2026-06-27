@@ -34,4 +34,6 @@ public interface HomeworkService {
 
     /** 获取单个作业信息 */
     Result<Homework> getHomework(Long hwId, User user);
+
+    Result<?> gradeByAI(Long submitId,  User user);
 }

@@ -30,6 +30,7 @@ public class CourseServiceImpl implements CourseService {
         this.userCourseMapper = userCourseMapper;
     }
 
+    /** 【用户首页】一次性获取用户所有课程数据（置顶课程 + 按学期分组） */
     @Override
     public Result<UserAllCoursesDTO> getAllCourses(User user) {
         // 1. 获取该用户的所有课程关联
@@ -103,6 +104,7 @@ public class CourseServiceImpl implements CourseService {
         return Result.success(result);
     }
 
+    /** 【教师创建课程】生成6位选课码，创建者自动成为该课程教师 */
     @Override
     @Transactional
     public Result<Course> createCourse(CourseDTO dto, User user) {
@@ -122,6 +124,7 @@ public class CourseServiceImpl implements CourseService {
         return Result.success(course);
     }
 
+    /** 【成员管理页】获取课程所有成员（教师+学生），每人带 userId、userName、角色 */
     @Override
     public Result<List<MemberDTO>> getCourseMembers(Long courseId, User user) {
         checkMembership(courseId, user);
@@ -129,6 +132,7 @@ public class CourseServiceImpl implements CourseService {
         return Result.success(members);
     }
 
+    /** 【学生加入课程】通过选课码加入，默认以学生身份 */
     @Override
     @Transactional
     public Result<?> joinCourse(String courseCode, User user) {
@@ -158,6 +162,7 @@ public class CourseServiceImpl implements CourseService {
         return Result.success("加入成功");
     }
 
+    /** 【课程详情页】获取单个课程信息，含当前用户在该课程的角色和学生总人数 */
     @Override
     public Result<Course> getCourseDetail(Long courseId, User user) {
         Course course = courseMapper.selectById(courseId);
@@ -178,6 +183,7 @@ public class CourseServiceImpl implements CourseService {
         return Result.success(course);
     }
 
+    /** 【课程置顶】切换课程的置顶/取消置顶状态，置顶时自动分配排序号 */
     @Override
     @Transactional
     public Result<?> togglePin(Long courseId, User user) {
@@ -210,6 +216,7 @@ public class CourseServiceImpl implements CourseService {
         return Result.success(newPinned ? "已置顶" : "已取消置顶");
     }
 
+    /** 【课程排序】拖拽调整置顶课程的显示顺序，按传入的 courseId 列表顺序更新 sortOrder */
     @Override
     @Transactional
     public Result<?> updatePinnedOrder(List<Long> courseIds, User user) {
