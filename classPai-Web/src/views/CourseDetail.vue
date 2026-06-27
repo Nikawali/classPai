@@ -14,24 +14,22 @@
       @back="backFromGrading"
     />
 
-    <!-- ==================== 作业详情页（占位） ==================== -->
-    <template v-else-if="selectedHomeworkId">
-      <div class="hw-detail-placeholder">
-        <div class="hw-detail-topbar">
-          <button class="hw-detail-back" @click="backFromHomework">
-            <svg viewBox="0 0 24 24" width="20" height="20">
-              <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </button>
-          <h2 class="hw-detail-title">作业详情</h2>
-        </div>
-        <div class="hw-detail-body">
-          <p class="hw-detail-info">作业 ID: {{ selectedHomeworkId }}</p>
-          <p class="hw-detail-info">课程 ID: {{ course.courseId }}</p>
-          <p class="hw-detail-placeholder-text">作业详情页面开发中...</p>
-        </div>
-      </div>
-    </template>
+    <!-- ==================== 学生作业详情页 ==================== -->
+    <StudentHomeworkDetail
+      v-else-if="selectedHomeworkId && !showSubmit"
+      :courseId="course.courseId"
+      :homeworkId="selectedHomeworkId"
+      @back="backFromHomework"
+      @submit="onStudentSubmit"
+    />
+
+    <!-- ==================== 学生作业提交页 ==================== -->
+    <StudentHomeworkSubmit
+      v-else-if="showSubmit"
+      :courseId="course.courseId"
+      :homeworkId="selectedHomeworkId"
+      @back="backFromSubmit"
+    />
 
     <!-- ==================== 课程详情主页 ==================== -->
     <template v-else>
@@ -245,7 +243,7 @@
                 已交 {{ hw.submitCount || 0 }}/{{ hw.totalStudents || 0 }}
                 已批 {{ hw.gradedCount || 0 }}/{{ hw.submitCount || 0 }}
               </span>
-              <span class="hw-deadline">{{ formatDate(hw.deadline) }}</span>
+              <span class="hw-deadline">{{ fmtDeadline(hw.deadline) }}</span>
             </div>
             <div class="hw-card-bottom">
               <p class="hw-content">{{ hw.content }}</p>
@@ -300,7 +298,10 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { api } from '../api/request.js'
 import CourseMembers from './CourseMembers.vue'
 import TeacherHomework from './TeacherHomework.vue'
+import StudentHomeworkDetail from './StudentHomeworkDetail.vue'
+import StudentHomeworkSubmit from './StudentHomeworkSubmit.vue'
 import { coverColor } from '../utils/colors.js'
+import { fmtDeadline } from '../utils/format.js'
 
 const props = defineProps({
   courseId: { type: [Number, String], required: true }
@@ -327,6 +328,16 @@ function backFromMembers() {
 
 // ============ 作业详情导航 ============
 const selectedHomeworkId = ref(null)
+const showSubmit = ref(false)
+
+function onStudentSubmit({ courseId, homeworkId }) {
+  showSubmit.value = true
+}
+
+function backFromSubmit() {
+  showSubmit.value = false
+  location.hash = '#/course/' + props.courseId + '/homework/' + selectedHomeworkId.value
+}
 
 // ============ 教师批阅导航 ============
 const showGrading = ref(false)
@@ -431,16 +442,6 @@ async function loadHomeworks() {
   } finally {
     hwLoading.value = false
   }
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '无截止日期'
-  const d = new Date(dateStr)
-  const month = d.getMonth() + 1
-  const day = d.getDate()
-  const hour = String(d.getHours()).padStart(2, '0')
-  const min = String(d.getMinutes()).padStart(2, '0')
-  return `${month}月${day}日 ${hour}:${min}`
 }
 
 // ============ 作业文件 ============

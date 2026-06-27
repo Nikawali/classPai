@@ -24,6 +24,9 @@ public class Homework {
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
+    /** 该作业最多允许提交次数（null=不限） */
+    private Integer maxSubmissions;
+
     // ========== 瞬态字段（不存库，listHomework 时填充） ==========
     /** 学生视角：当前学生是否已提交 */
     @TableField(exist = false)

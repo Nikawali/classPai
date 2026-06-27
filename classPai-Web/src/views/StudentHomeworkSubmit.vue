@@ -135,6 +135,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/request.js'
+import { fmt, fmtSize } from '../utils/format.js'
 
 const props = defineProps({
   courseId:  { type: [String,Number], required: true },
@@ -214,10 +215,9 @@ async function doSubmit() {
   }
   submitting.value = true; submitError.value = ''
   try {
-    const fd = new FormData()
-    fd.append('submitContent', submitContent.value.trim())
-    selectedFiles.value.forEach(f => fd.append('files', f))
-    await api.submitHomework(props.homeworkId, fd)
+    await api.submitHomework(props.homeworkId, {
+      content: submitContent.value.trim()
+    })
     // 成功后清空表单 + 重新加载
     submitContent.value = ''
     selectedFiles.value = []
@@ -225,18 +225,6 @@ async function doSubmit() {
   } catch (e) {
     submitError.value = e.message
   } finally { submitting.value = false }
-}
-
-// ===== 工具 =====
-function fmt(v) {
-  if (!v) return '--'
-  if (typeof v === 'number') return new Date(v * 1000).toLocaleString('zh-CN')
-  return String(v).replace('T',' ').substring(0,16)
-}
-function fmtSize(b) {
-  if (!b) return ''
-  if (b < 1024) return b+'B'; if (b < 1048576) return (b/1024).toFixed(1)+'KB'
-  return (b/1048576).toFixed(1)+'MB'
 }
 
 onMounted(loadData)

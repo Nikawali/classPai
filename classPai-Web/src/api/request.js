@@ -152,6 +152,21 @@ export const api = {
   getHomeworkGrading(hwId) {
     return request(`/homework/${hwId}/grading`)
   },
+  /** 学生端：获取作业详情（含提交记录） */
+  getHomeworkStudentDetail(hwId) {
+    return request(`/homework/${hwId}/student`)
+  },
+  /** 学生端：获取提交页数据 */
+  getSubmitPageData(hwId) {
+    return request(`/homework/${hwId}/submit-page`)
+  },
+  /** 学生端：提交作业 */
+  submitHomework(hwId, body) {
+    return request(`/homework/${hwId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    })
+  },
   // ========== 课程功能按钮（预留） ==========
   getCourseAttendance(courseId) {
     return request(`/course/${courseId}/attendance`)

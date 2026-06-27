@@ -34,4 +34,10 @@ public interface HomeworkService {
 
     /** 获取单个作业信息 */
     Result<Homework> getHomework(Long hwId, User user);
+
+    /** 学生端：获取作业详情（含提交记录、文件、状态） */
+    Result<?> getStudentHomeworkDetail(Long hwId, User user);
+
+    /** 学生端：获取提交页数据 */
+    Result<?> getSubmitPageData(Long hwId, User user);
 }

@@ -69,8 +69,8 @@
           </tr>
           <tr v-for="hw in homeworkList" :key="hw.hwId" style="cursor:pointer" @click="viewDetail(hw)">
             <td><span class="hw-name">{{ hw.title }}</span></td>
-            <td>{{ fmt(hw.startTime) }}</td>
-            <td>{{ fmt(hw.deadline) }}</td>
+            <td>{{ fmtShort(hw.startTime) }}</td>
+            <td>{{ fmtShort(hw.deadline) }}</td>
             <td>
               <div class="progress-cell">
                 <div class="progress-bar"><div class="progress-fill" :style="{width:progressPct(hw)+'%'}"></div></div>
@@ -162,8 +162,8 @@
           <div class="dialog-body">
             <div class="detail-meta">
               <span>满分：{{ detail?.totalScore || 100 }}分</span>
-              <span>开始：{{ fmt(detail?.startTime) || '未设置' }}</span>
-              <span>截止：{{ fmt(detail?.deadline) || '未设置' }}</span>
+              <span>开始：{{ fmtShort(detail?.startTime) || '未设置' }}</span>
+              <span>截止：{{ fmtShort(detail?.deadline) || '未设置' }}</span>
             </div>
             <div class="detail-section">
               <h4>作业内容</h4>
@@ -224,7 +224,7 @@
               <tbody>
                 <tr v-for="g in gradingList" :key="g.submitId || g.studentId">
                   <td>{{ g.studentName || g.studentId }}</td>
-                  <td>{{ fmt(g.submitTime) || '未提交' }}</td>
+                  <td>{{ fmtShort(g.submitTime) || '未提交' }}</td>
                   <td>{{ g.score != null ? g.score + '分' : '未批' }}</td>
                   <td>
                     <button v-if="g.submitId && g.score == null" class="act-btn" title="评分" @click="openGrade(g)">评分</button>
@@ -285,6 +285,7 @@
  */
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api/request.js'
+import { fmtShort, fmtSize } from '../utils/format.js'
 
 const props = defineProps({
   courseId:  { type: [String,Number], required: true },
@@ -453,19 +454,6 @@ async function handleGrade() {
 }
 
 // ========== 工具 ==========
-function fmt(v) {
-  if (!v) return '--'
-  if (typeof v === 'number') {
-    return new Date(v * 1000).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
-  }
-  return String(v).replace('T',' ').substring(0,16)
-}
-function fmtSize(b) {
-  if (!b) return ''
-  if (b < 1024) return b + ' B'
-  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'
-  return (b / 1048576).toFixed(1) + ' MB'
-}
 function progressPct(hw) {
   const total = hw.totalStudents || 0
   return total > 0 ? Math.round(((hw.submitCount || 0) / total) * 100) : 0

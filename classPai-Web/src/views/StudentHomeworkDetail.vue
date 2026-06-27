@@ -129,6 +129,7 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/request.js'
+import { fmt, fmtSize, fileIcon } from '../utils/format.js'
 
 const props = defineProps({
   courseId:  { type: [String, Number], required: true },
@@ -187,29 +188,6 @@ function goSubmit() {
   // 跳转到课程详情页的作业提交区（复用已有提交逻辑）
   location.hash = '#/course/' + props.courseId + '/homework/' + props.homeworkId
   emit('submit', { courseId: props.courseId, homeworkId: props.homeworkId })
-}
-
-// ========== 工具 ==========
-function fmt(v) {
-  if (!v) return '--'
-  if (typeof v === 'number') {
-    return new Date(v * 1000).toLocaleString('zh-CN')
-  }
-  return String(v).replace('T', ' ').substring(0, 16)
-}
-function fmtSize(b) {
-  if (!b) return ''
-  if (b < 1024) return b + ' B'
-  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'
-  return (b / 1048576).toFixed(1) + ' MB'
-}
-function fileIcon(name) {
-  const ext = (name || '').split('.').pop()?.toLowerCase()
-  if (['jpg','jpeg','png','gif','svg'].includes(ext)) return '🖼'
-  if (['pdf'].includes(ext)) return '📄'
-  if (['zip','rar','7z','gz'].includes(ext)) return '🗜'
-  if (['doc','docx'].includes(ext)) return '📝'
-  return '📎'
 }
 
 onMounted(loadDetail)
