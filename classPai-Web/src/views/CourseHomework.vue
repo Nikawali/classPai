@@ -98,53 +98,53 @@
 
     <!-- ========== 创建作业弹窗 ========== -->
     <Teleport to="body">
-      <div v-if="showCreate" class="overlay" @click.self="showCreate=false">
-        <div class="dialog">
-          <div class="dialog-header">
+      <div v-if="showCreate" class="cw-overlay" @click.self="showCreate=false">
+        <div class="cw-dialog">
+          <div class="cw-dialog-header">
             <h3>发布新作业</h3>
-            <button class="dialog-close" @click="showCreate=false">&times;</button>
+            <button class="cw-dialog-close" @click="showCreate=false">&times;</button>
           </div>
-          <form class="dialog-body" @submit.prevent="handleCreate">
-            <div class="field">
-              <label>作业标题 <span class="required">*</span></label>
-              <input v-model="createForm.title" type="text" placeholder="请输入作业标题" class="input" required />
+          <form class="cw-dialog-body" @submit.prevent="handleCreate">
+            <div class="cw-field">
+              <label>作业标题 <span class="cw-req">*</span></label>
+              <input v-model="createForm.title" type="text" placeholder="请输入作业标题" class="cw-input" required />
             </div>
-            <div class="field">
+            <div class="cw-field">
               <label>作业内容</label>
-              <textarea v-model="createForm.content" rows="6" placeholder="请输入作业内容描述..." class="input textarea"></textarea>
+              <textarea v-model="createForm.content" rows="6" placeholder="请输入作业内容描述..." class="cw-input cw-textarea"></textarea>
             </div>
-            <div class="field-row">
-              <div class="field">
+            <div class="cw-field-row">
+              <div class="cw-field">
                 <label>开始时间</label>
-                <input v-model="createForm.startTime" type="datetime-local" class="input" />
+                <input v-model="createForm.startTime" type="datetime-local" class="cw-input" />
               </div>
-              <div class="field">
-                <label>截止时间 <span class="required">*</span></label>
-                <input v-model="createForm.deadline" type="datetime-local" class="input" required />
+              <div class="cw-field">
+                <label>截止时间 <span class="cw-req">*</span></label>
+                <input v-model="createForm.deadline" type="datetime-local" class="cw-input" placeholder="请选择截止时间" required />
               </div>
             </div>
-            <div class="field">
+            <div class="cw-field">
               <label>附件（选填，支持多文件）</label>
-              <div class="attach-area">
-                <label class="attach-btn">
+              <div class="cw-attach-area">
+                <label class="cw-attach-btn">
                   <svg viewBox="0 0 24 24" width="16" height="16"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                   选择文件
                   <input type="file" multiple hidden @change="onFilesSelected" />
                 </label>
-                <span class="attach-hint" v-if="createForm.files.length === 0">支持文档、压缩包、图片等</span>
+                <span class="cw-attach-hint" v-if="createForm.files.length === 0">支持文档、压缩包、图片等</span>
               </div>
-              <ul v-if="createForm.files.length" class="attach-list">
-                <li v-for="(f,i) in createForm.files" :key="i" class="attach-item">
-                  <span class="attach-name">{{ f.name }}</span>
-                  <span class="attach-size">{{ fmtSize(f.size) }}</span>
-                  <button type="button" class="attach-del" @click="createForm.files.splice(i,1)">&times;</button>
+              <ul v-if="createForm.files.length" class="cw-attach-list">
+                <li v-for="(f,i) in createForm.files" :key="i" class="cw-attach-item">
+                  <span class="cw-attach-name">{{ f.name }}</span>
+                  <span class="cw-attach-size">{{ fmtSize(f.size) }}</span>
+                  <button type="button" class="cw-attach-del" @click="createForm.files.splice(i,1)">&times;</button>
                 </li>
               </ul>
             </div>
-            <p v-if="createError" class="error-text">{{ createError }}</p>
-            <div class="dialog-actions">
-              <button type="button" class="btn-cancel" @click="showCreate=false">取消</button>
-              <button type="submit" class="btn-submit" :disabled="submitting">{{ submitting ? '发布中...' : '发 布' }}</button>
+            <p v-if="createError" class="cw-error">{{ createError }}</p>
+            <div class="cw-dialog-actions">
+              <button type="button" class="cw-btn-cancel" @click="showCreate=false">取消</button>
+              <button type="submit" class="cw-btn-submit" :disabled="submitting">{{ submitting ? '发布中...' : '发 布' }}</button>
             </div>
           </form>
         </div>
@@ -153,32 +153,32 @@
 
     <!-- ========== 作业详情弹窗 ========== -->
     <Teleport to="body">
-      <div v-if="showDetail" class="overlay" @click.self="showDetail=false">
-        <div class="dialog detail-dialog">
-          <div class="dialog-header">
+      <div v-if="showDetail" class="cw-overlay" @click.self="showDetail=false">
+        <div class="cw-dialog cw-dialog-wide">
+          <div class="cw-dialog-header">
             <h3>{{ detail?.title }}</h3>
-            <button class="dialog-close" @click="showDetail=false">&times;</button>
+            <button class="cw-dialog-close" @click="showDetail=false">&times;</button>
           </div>
-          <div class="dialog-body">
-            <div class="detail-meta">
+          <div class="cw-dialog-body">
+            <div class="cw-detail-meta">
               <span>满分：{{ detail?.totalScore || 100 }}分</span>
               <span>开始：{{ fmtShort(detail?.startTime) || '未设置' }}</span>
               <span>截止：{{ fmtShort(detail?.deadline) || '未设置' }}</span>
             </div>
-            <div class="detail-section">
+            <div class="cw-detail-section">
               <h4>作业内容</h4>
-              <div class="detail-content">{{ detail?.content || '暂无内容' }}</div>
+              <div class="cw-detail-content">{{ detail?.content || '暂无内容' }}</div>
             </div>
-            <div class="detail-section" v-if="fileList.length">
+            <div class="cw-detail-section" v-if="fileList.length">
               <h4>附件 ({{ fileList.length }})</h4>
-              <ul class="file-list">
-                <li v-for="f in fileList" :key="f.fileId" class="file-item">
+              <ul class="cw-file-list">
+                <li v-for="f in fileList" :key="f.fileId" class="cw-file-item">
                   <span>{{ f.originalName }}</span>
-                  <span class="file-size">{{ fmtSize(f.fileSize) }}</span>
+                  <span class="cw-file-size">{{ fmtSize(f.fileSize) }}</span>
                 </li>
               </ul>
             </div>
-            <p v-if="detailError" class="error-text">{{ detailError }}</p>
+            <p v-if="detailError" class="cw-error">{{ detailError }}</p>
           </div>
         </div>
       </div>
@@ -186,19 +186,19 @@
 
     <!-- ========== 附件列表弹窗 ========== -->
     <Teleport to="body">
-      <div v-if="showFiles" class="overlay" @click.self="showFiles=false">
-        <div class="dialog">
-          <div class="dialog-header">
+      <div v-if="showFiles" class="cw-overlay" @click.self="showFiles=false">
+        <div class="cw-dialog">
+          <div class="cw-dialog-header">
             <h3>附件列表 — {{ filesHwTitle }}</h3>
-            <button class="dialog-close" @click="showFiles=false">&times;</button>
+            <button class="cw-dialog-close" @click="showFiles=false">&times;</button>
           </div>
-          <div class="dialog-body">
-            <div v-if="filesLoading" class="empty-state">加载中...</div>
-            <div v-else-if="currentFiles.length===0" class="empty-state">暂无附件</div>
-            <ul v-else class="file-list">
-              <li v-for="f in currentFiles" :key="f.fileId" class="file-item">
+          <div class="cw-dialog-body">
+            <div v-if="filesLoading" class="cw-empty-state">加载中...</div>
+            <div v-else-if="currentFiles.length===0" class="cw-empty-state">暂无附件</div>
+            <ul v-else class="cw-file-list">
+              <li v-for="f in currentFiles" :key="f.fileId" class="cw-file-item">
                 <span>{{ f.originalName }}</span>
-                <span class="file-size">{{ fmtSize(f.fileSize) }}</span>
+                <span class="cw-file-size">{{ fmtSize(f.fileSize) }}</span>
               </li>
             </ul>
           </div>
@@ -208,16 +208,16 @@
 
     <!-- ========== 批阅弹窗 ========== -->
     <Teleport to="body">
-      <div v-if="showGrading" class="overlay" @click.self="showGrading=false">
-        <div class="dialog grading-dialog">
-          <div class="dialog-header">
+      <div v-if="showGrading" class="cw-overlay" @click.self="showGrading=false">
+        <div class="cw-dialog cw-dialog-xwide">
+          <div class="cw-dialog-header">
             <h3>批阅 — {{ gradingHwTitle }}</h3>
-            <button class="dialog-close" @click="showGrading=false">&times;</button>
+            <button class="cw-dialog-close" @click="showGrading=false">&times;</button>
           </div>
-          <div class="dialog-body">
-            <div v-if="gradingLoading" class="empty-state">加载中...</div>
-            <div v-else-if="gradingList.length===0" class="empty-state">暂无提交</div>
-            <table v-else class="grading-table">
+          <div class="cw-dialog-body">
+            <div v-if="gradingLoading" class="cw-empty-state">加载中...</div>
+            <div v-else-if="gradingList.length===0" class="cw-empty-state">暂无提交</div>
+            <table v-else class="cw-grading-table">
               <thead>
                 <tr><th>学生</th><th>提交时间</th><th>得分</th><th>操作</th></tr>
               </thead>
@@ -240,25 +240,25 @@
 
     <!-- ========== 评分小弹窗 ========== -->
     <Teleport to="body">
-      <div v-if="showGrade" class="overlay" @click.self="showGrade=false">
-        <div class="dialog" style="width:400px">
-          <div class="dialog-header">
+      <div v-if="showGrade" class="cw-overlay" @click.self="showGrade=false">
+        <div class="cw-dialog" style="width:400px">
+          <div class="cw-dialog-header">
             <h3>评分</h3>
-            <button class="dialog-close" @click="showGrade=false">&times;</button>
+            <button class="cw-dialog-close" @click="showGrade=false">&times;</button>
           </div>
-          <form class="dialog-body" @submit.prevent="handleGrade">
-            <div class="field">
-              <label>分数 <span class="required">*</span></label>
-              <input v-model.number="gradeForm.score" type="number" min="0" max="100" placeholder="0-100" class="input" required />
+          <form class="cw-dialog-body" @submit.prevent="handleGrade">
+            <div class="cw-field">
+              <label>分数 <span class="cw-req">*</span></label>
+              <input v-model.number="gradeForm.score" type="number" min="0" max="100" placeholder="0-100" class="cw-input" required />
             </div>
-            <div class="field">
+            <div class="cw-field">
               <label>评语</label>
-              <textarea v-model="gradeForm.feedback" rows="3" placeholder="可选..." class="input textarea"></textarea>
+              <textarea v-model="gradeForm.feedback" rows="3" placeholder="可选..." class="cw-input cw-textarea"></textarea>
             </div>
-            <p v-if="gradeError" class="error-text">{{ gradeError }}</p>
-            <div class="dialog-actions">
-              <button type="button" class="btn-cancel" @click="showGrade=false">取消</button>
-              <button type="submit" class="btn-submit" :disabled="gradingSubmitting">{{ gradingSubmitting ? '提交中...' : '确认' }}</button>
+            <p v-if="gradeError" class="cw-error">{{ gradeError }}</p>
+            <div class="cw-dialog-actions">
+              <button type="button" class="cw-btn-cancel" @click="showGrade=false">取消</button>
+              <button type="submit" class="cw-btn-submit" :disabled="gradingSubmitting">{{ gradingSubmitting ? '提交中...' : '确认' }}</button>
             </div>
           </form>
         </div>
@@ -285,7 +285,7 @@
  */
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api/request.js'
-import { fmtShort, fmtSize } from '../utils/format.js'
+import { fmt, fmtShort, fmtSize } from '../utils/format.js'
 
 const props = defineProps({
   courseId:  { type: [String,Number], required: true },
@@ -332,10 +332,15 @@ function openCreate() {
   createError.value = ''
   createForm.title = ''
   createForm.content = ''
-  createForm.startTime = ''
+  createForm.startTime = nowLocal()
   createForm.deadline = ''
   createForm.files = []
   showCreate.value = true
+}
+function nowLocal() {
+  const d = new Date()
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 16)
 }
 function onFilesSelected(e) {
   createForm.files = Array.from(e.target.files)
@@ -350,7 +355,9 @@ async function handleCreate() {
     const fd = new FormData()
     fd.append('title',    createForm.title.trim())
     fd.append('content',  createForm.content.trim())
-    fd.append('startTime',createForm.startTime ? String(Math.floor(new Date(createForm.startTime).getTime() / 1000)) : '')
+    if (createForm.startTime) {
+      fd.append('startTime', String(Math.floor(new Date(createForm.startTime).getTime() / 1000)))
+    }
     fd.append('deadline', String(Math.floor(new Date(createForm.deadline).getTime() / 1000)))
     createForm.files.forEach(f => fd.append('files', f))
 
@@ -515,56 +522,52 @@ onMounted(loadList)
 .pagination button:disabled { opacity: .4; cursor: not-allowed; }
 .page-num { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text-secondary); }
 .page-num.active { background: var(--primary); color: #fff; }
+</style>
 
-/* ===== 弹窗通用 ===== */
-.overlay { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: flex; justify-content: center; align-items: flex-start; padding: 30px 20px; z-index: 1000; overflow-y: auto; }
-.dialog { background: var(--card); border-radius: 14px; width: 640px; max-width: 95vw; box-shadow: 0 25px 60px rgba(0,0,0,.18); }
-.detail-dialog { width: 700px; }
-.grading-dialog { width: 780px; }
-.dialog-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 28px; border-bottom: 1px solid var(--border); }
-.dialog-header h3 { font-size: 18px; font-weight: 700; color: var(--text); }
-.dialog-close { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: none; border: none; font-size: 22px; color: var(--text-muted); cursor: pointer; border-radius: 8px; }
-.dialog-close:hover { background: var(--bg); color: var(--text); }
-.dialog-body { padding: 24px 28px; max-height: 60vh; overflow-y: auto; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
-
-/* ===== 表单 ===== */
-.field { margin-bottom: 16px; }
-.field label { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
-.required { color: var(--danger); }
-.field-row { display: flex; gap: 20px; }
-.field-row .field { flex: 1; }
-.input { width: 100%; padding: 9px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text); outline: none; transition: border-color .2s; background: #fff; box-sizing: border-box; }
-.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
-.textarea { resize: vertical; font-family: inherit; }
-.error-text { color: var(--danger); font-size: 13px; margin-top: 8px; }
-.btn-cancel { padding: 10px 24px; background: var(--bg); border: none; border-radius: 8px; font-size: 14px; color: var(--text-secondary); cursor: pointer; }
-.btn-submit { padding: 10px 28px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background .2s; }
-.btn-submit:hover { background: var(--primary-dark); }
-.btn-submit:disabled { background: #a5b4fc; cursor: not-allowed; }
-
-/* ===== 附件 ===== */
-.attach-area { display: flex; align-items: center; gap: 14px; }
-.attach-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px dashed var(--primary); border-radius: 8px; font-size: 13px; color: var(--primary); cursor: pointer; background: var(--primary-light); }
-.attach-btn:hover { background: #dbeafe; }
-.attach-hint { font-size: 12px; color: var(--text-muted); }
-.attach-list { list-style: none; margin-top: 10px; }
-.attach-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg); border-radius: 6px; margin-bottom: 6px; font-size: 13px; }
-.attach-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.attach-size { color: var(--text-muted); font-size: 12px; }
-.attach-del { background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; }
-
-/* ===== 详情 ===== */
-.detail-meta { display: flex; flex-wrap: wrap; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px; font-size: 13px; color: var(--text-secondary); }
-.detail-section { margin-bottom: 16px; }
-.detail-section h4 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
-.detail-content { font-size: 14px; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
-.file-list { list-style: none; }
-.file-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
-.file-size { color: var(--text-muted); font-size: 12px; }
-
-/* ===== 批阅表 ===== */
-.grading-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.grading-table th { text-align: left; padding: 8px 10px; background: #f1f5f9; color: var(--text-secondary); font-weight: 600; }
-.grading-table td { padding: 10px; border-top: 1px solid var(--border); color: var(--text); }
+<!-- ===== 弹窗/表单样式（非 scoped，因为 Teleport 到 body） ===== -->
+<style>
+/* 复用 CourseHomework 的 CSS 变量（硬编码） */
+.cw-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: flex; justify-content: center; align-items: flex-start; padding: 30px 20px; z-index: 1000; overflow-y: auto; }
+.cw-dialog { background: #fff; border-radius: 14px; width: 640px; max-width: 95vw; box-shadow: 0 25px 60px rgba(0,0,0,.18); }
+.cw-dialog-wide { width: 700px; }
+.cw-dialog-xwide { width: 780px; }
+.cw-dialog-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 28px; border-bottom: 1px solid #e2e8f0; }
+.cw-dialog-header h3 { font-size: 18px; font-weight: 700; color: #1e293b; }
+.cw-dialog-close { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: none; border: none; font-size: 22px; color: #94a3b8; cursor: pointer; border-radius: 8px; }
+.cw-dialog-close:hover { background: #f8fafc; color: #1e293b; }
+.cw-dialog-body { padding: 24px 28px; max-height: 60vh; overflow-y: auto; }
+.cw-dialog-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.cw-field { margin-bottom: 16px; }
+.cw-field label { display: block; font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
+.cw-req { color: #ef4444; }
+.cw-field-row { display: flex; gap: 20px; }
+.cw-field-row .cw-field { flex: 1; }
+.cw-input { width: 100%; padding: 9px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; color: #1e293b; outline: none; transition: border-color .2s; background: #fff; box-sizing: border-box; }
+.cw-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+.cw-textarea { resize: vertical; font-family: inherit; }
+.cw-error { color: #ef4444; font-size: 13px; margin-top: 8px; }
+.cw-btn-cancel { padding: 10px 24px; background: #f8fafc; border: none; border-radius: 8px; font-size: 14px; color: #64748b; cursor: pointer; }
+.cw-btn-submit { padding: 10px 28px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background .2s; }
+.cw-btn-submit:hover { background: #2563eb; }
+.cw-btn-submit:disabled { background: #a5b4fc; cursor: not-allowed; }
+.cw-attach-area { display: flex; align-items: center; gap: 14px; }
+.cw-attach-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px dashed #3b82f6; border-radius: 8px; font-size: 13px; color: #3b82f6; cursor: pointer; background: #eff6ff; }
+.cw-attach-btn:hover { background: #dbeafe; }
+.cw-attach-hint { font-size: 12px; color: #94a3b8; }
+.cw-attach-list { list-style: none; margin-top: 10px; }
+.cw-attach-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8fafc; border-radius: 6px; margin-bottom: 6px; font-size: 13px; }
+.cw-attach-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-attach-size { color: #94a3b8; font-size: 12px; }
+.cw-attach-del { background: none; border: none; font-size: 18px; color: #94a3b8; cursor: pointer; }
+.cw-detail-meta { display: flex; flex-wrap: wrap; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0; margin-bottom: 14px; font-size: 13px; color: #64748b; }
+.cw-detail-section { margin-bottom: 16px; }
+.cw-detail-section h4 { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px; }
+.cw-detail-content { font-size: 14px; line-height: 1.7; color: #1e293b; white-space: pre-wrap; }
+.cw-file-list { list-style: none; }
+.cw-file-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #1e293b; }
+.cw-file-size { color: #94a3b8; font-size: 12px; }
+.cw-grading-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cw-grading-table th { text-align: left; padding: 8px 10px; background: #f1f5f9; color: #64748b; font-weight: 600; }
+.cw-grading-table td { padding: 10px; border-top: 1px solid #e2e8f0; color: #1e293b; }
+.cw-empty-state { display: flex; flex-direction: column; align-items: center; gap: 12px; color: #94a3b8; font-size: 14px; }
 </style>

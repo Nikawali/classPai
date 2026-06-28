@@ -165,6 +165,20 @@ export const api = {
   getSubmitPageData(hwId) {
     return request(`/homework/${hwId}/submit-page`)
   },
+  /** 教师端：发布作业（支持文件上传） */
+  createHomework(courseId, fd) {
+    return request(`/homework/course/${courseId}`, {
+      method: 'POST',
+      body: fd
+    })
+  },
+  /** 教师端：批阅打分 */
+  gradeHomework(submitId, body) {
+    return request(`/homework/submission/${submitId}/grade`, {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    })
+  },
   /** 学生端：提交作业（支持文件上传） */
   submitHomework(hwId, content, files) {
     const formData = new FormData()
