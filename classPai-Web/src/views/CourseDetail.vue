@@ -14,6 +14,15 @@
       @back="backFromGrading"
     />
 
+    <!-- ==================== 教师发布作业页 ==================== -->
+    <CourseHomework
+      v-if="showAddHomework"
+      :courseId="course.courseId"
+      :courseName="course.courseName"
+      :courseCode="course.courseCode"
+      @back="backFromAddHomework"
+    />
+
     <!-- ==================== 学生作业详情页 ==================== -->
     <StudentHomeworkDetail
       v-else-if="selectedHomeworkId && !showSubmit"
@@ -298,6 +307,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { api } from '../api/request.js'
 import CourseMembers from './CourseMembers.vue'
 import TeacherHomework from './TeacherHomework.vue'
+import CourseHomework from './CourseHomework.vue'
 import StudentHomeworkDetail from './StudentHomeworkDetail.vue'
 import StudentHomeworkSubmit from './StudentHomeworkSubmit.vue'
 import { coverColor } from '../utils/colors.js'
@@ -342,6 +352,7 @@ function backFromSubmit() {
 // ============ 教师批阅导航 ============
 const showGrading = ref(false)
 const gradingHwId = ref(null)
+const showAddHomework = ref(false)
 
 function isGradingHash() {
   const m = location.hash.match(/^#\/course\/(\d+)\/homework\/(\d+)\/grading$/)
@@ -544,8 +555,12 @@ function handleFunc(type) {
 }
 
 function addHomework() {
-  // TODO: 弹出创建作业表单
-  console.log(`[预留接口] 创建作业: POST /api/homework/course/${props.courseId}`)
+  showAddHomework.value = true
+}
+
+function backFromAddHomework() {
+  showAddHomework.value = false
+  loadHomeworks()
 }
 
 function copyCode() {
