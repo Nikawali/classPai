@@ -70,4 +70,32 @@ public class CourseController {
         User user = (User) request.getAttribute("currentUser");
         return courseService.getAllCourses(user);
     }
+
+    /** 学生退出课程 */
+    @DeleteMapping("/{courseId}/quit")
+    public Result<?> quit(@PathVariable Long courseId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return courseService.quitCourse(courseId, user);
+    }
+
+    /** 归档课程 */
+    @PostMapping("/{courseId}/archive")
+    public Result<?> archive(@PathVariable Long courseId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return courseService.archiveCourse(courseId, user);
+    }
+
+    /** 取消归档 */
+    @PostMapping("/{courseId}/unarchive")
+    public Result<?> unarchive(@PathVariable Long courseId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return courseService.unarchiveCourse(courseId, user);
+    }
+
+    /** 获取已归档课程列表 */
+    @GetMapping("/archived")
+    public Result<List<Course>> archived(HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return courseService.getArchivedCourses(user);
+    }
 }

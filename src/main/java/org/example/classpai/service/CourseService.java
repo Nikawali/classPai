@@ -28,4 +28,16 @@ public interface CourseService {
 
     /** 一次性获取用户的所有课程数据（置顶 + 分组） */
     Result<UserAllCoursesDTO> getAllCourses(User user);
+
+    /** 学生退出课程 */
+    Result<?> quitCourse(Long courseId, User user);
+
+    /** 归档课程（用户级，从主页隐藏但保留数据） */
+    Result<?> archiveCourse(Long courseId, User user);
+
+    /** 取消归档，课程恢复至主页 */
+    Result<?> unarchiveCourse(Long courseId, User user);
+
+    /** 获取用户已归档的课程列表 */
+    Result<List<Course>> getArchivedCourses(User user);
 }

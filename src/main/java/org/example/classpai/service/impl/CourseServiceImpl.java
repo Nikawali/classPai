@@ -33,9 +33,11 @@ public class CourseServiceImpl implements CourseService {
     /** 【用户首页】一次性获取用户所有课程数据（置顶课程 + 按学期分组） */
     @Override
     public Result<UserAllCoursesDTO> getAllCourses(User user) {
-        // 1. 获取该用户的所有课程关联
+        // 1. 获取该用户的所有课程关联（排除已归档）
         List<UserCourse> allUc = userCourseMapper.selectList(
-                new LambdaQueryWrapper<UserCourse>().eq(UserCourse::getUserId, user.getUserId()));
+                new LambdaQueryWrapper<UserCourse>()
+                        .eq(UserCourse::getUserId, user.getUserId())
+                        .eq(UserCourse::getArchived, false));
 
         if (allUc.isEmpty()) {
             UserAllCoursesDTO empty = new UserAllCoursesDTO();
@@ -44,44 +46,16 @@ public class CourseServiceImpl implements CourseService {
             return Result.success(empty);
         }
 
-        // courseId → UserCourse 映射
-        Map<Long, UserCourse> ucMap = allUc.stream()
-                .collect(Collectors.toMap(UserCourse::getCourseId, uc -> uc, (a, b) -> a));
+        // 2. 加载课程并填充瞬态字段
+        List<Course> courses = loadCoursesWithMeta(allUc);
 
-        // 2. 获取所有关联的课程
-        List<Long> courseIds = new ArrayList<>(ucMap.keySet());
-        List<Course> courses = courseMapper.selectList(
-                new LambdaQueryWrapper<Course>().in(Course::getCourseId, courseIds));
-
-        // 3. 填充瞬态字段
-        Map<Long, Course> courseMap = new HashMap<>();
-        for (Course c : courses) {
-            UserCourse uc = ucMap.get(c.getCourseId());
-            c.setUserRole(uc.getRole());
-            c.setPinned(Boolean.TRUE.equals(uc.getPinned()));
-            c.setSortOrder(uc.getSortOrder());
-            courseMap.put(c.getCourseId(), c);
-        }
-
-        // 4. 批量填充学生人数（一次 GROUP BY 查询，避免 N+1）
-        Map<Long, Integer> studentCountMap = new HashMap<>();
-        if (!courseIds.isEmpty()) {
-            studentCountMap = userCourseMapper.countStudentsByCourseIds(courseIds).stream()
-                    .collect(Collectors.toMap(
-                            m -> ((Number) m.get("course_id")).longValue(),
-                            m -> ((Number) m.get("total")).intValue()));
-        }
-        for (Course c : courses) {
-            c.setStudentCount(studentCountMap.getOrDefault(c.getCourseId(), 0));
-        }
-
-        // 5. 提取置顶课程（按 sortOrder 排序）
+        // 3. 提取置顶课程（按 sortOrder 排序）
         List<Course> pinnedCourses = courses.stream()
                 .filter(c -> Boolean.TRUE.equals(c.getPinned()))
                 .sorted(Comparator.comparing(Course::getSortOrder, Comparator.nullsLast(Comparator.naturalOrder())))
                 .collect(Collectors.toList());
 
-        // 6. 按学年学期分组
+        // 4. 按学年学期分组
         Map<String, List<Course>> groupMap = new LinkedHashMap<>();
         for (Course c : courses) {
             String key = buildSemesterKey(c);
@@ -172,6 +146,7 @@ public class CourseServiceImpl implements CourseService {
 
         UserCourse uc = checkMembership(courseId, user);
         course.setUserRole(uc.getRole());
+        course.setArchived(Boolean.TRUE.equals(uc.getArchived()));
 
         // 填充学生人数
         Long studentCount = userCourseMapper.selectCount(
@@ -233,6 +208,63 @@ public class CourseServiceImpl implements CourseService {
         return Result.success();
     }
 
+    /** 【学生退出课程】仅学生可退课，教师不可通过此接口退课 */
+    @Override
+    @Transactional
+    public Result<?> quitCourse(Long courseId, User user) {
+        UserCourse uc = checkMembership(courseId, user);
+        if (!"student".equals(uc.getRole())) {
+            throw new BusinessException(403, "教师不可退课，请先转让课程");
+        }
+        userCourseMapper.deleteById(uc.getCsId());
+        return Result.success("已退出课程");
+    }
+
+    /** 【归档课程】教师归档会级联归档该课程所有学生；学生仅归档自己 */
+    @Override
+    @Transactional
+    public Result<?> archiveCourse(Long courseId, User user) {
+        UserCourse uc = checkMembership(courseId, user);
+        if (Boolean.TRUE.equals(uc.getArchived())) {
+            return Result.success("课程已归档");
+        }
+        if ("teacher".equals(uc.getRole())) {
+            // 教师归档：级联所有成员
+            userCourseMapper.updateArchivedByCourseId(courseId, true);
+        } else {
+            // 学生归档：仅归档自己
+            uc.setArchived(true);
+            userCourseMapper.updateById(uc);
+        }
+        return Result.success("课程已归档");
+    }
+
+    /** 【取消归档】学生无法取消教师发起的归档；教师可自行取消 */
+    @Override
+    @Transactional
+    public Result<?> unarchiveCourse(Long courseId, User user) {
+        UserCourse uc = checkMembership(courseId, user);
+        if (!Boolean.TRUE.equals(uc.getArchived())) {
+            return Result.success("课程未归档");
+        }
+        if (!"teacher".equals(uc.getRole()) && userCourseMapper.existsTeacherArchived(courseId)) {
+            throw new BusinessException(403, "该课程已被老师归档，无法取消归档");
+        }
+        uc.setArchived(false);
+        userCourseMapper.updateById(uc);
+        return Result.success("已取消归档");
+    }
+
+    /** 【查询用户已归档课程】 */
+    @Override
+    public Result<List<Course>> getArchivedCourses(User user) {
+        List<UserCourse> ucList = userCourseMapper.selectList(
+                new LambdaQueryWrapper<UserCourse>()
+                        .eq(UserCourse::getUserId, user.getUserId())
+                        .eq(UserCourse::getArchived, true));
+        return Result.success(loadCoursesWithMeta(ucList));
+    }
+
     /** 校验用户是否为课程成员，是则返回关联记录，否则抛异常 */
     private UserCourse checkMembership(Long courseId, User user) {
         UserCourse uc = userCourseMapper.selectOne(
@@ -249,6 +281,36 @@ public class CourseServiceImpl implements CourseService {
     private String buildSemesterKey(Course c) {
         String yearRange = c.getStartDate().getYear() + "-" + c.getEndDate().getYear();
         return yearRange + c.getSemester();
+    }
+
+    /** 加载课程列表并填充瞬态字段（角色、置顶、排序、学生人数） */
+    private List<Course> loadCoursesWithMeta(List<UserCourse> ucList) {
+        if (ucList.isEmpty())
+            return List.of();
+        Map<Long, UserCourse> ucMap = ucList.stream()
+                .collect(Collectors.toMap(UserCourse::getCourseId, uc -> uc, (a, b) -> a));
+        List<Long> courseIds = new ArrayList<>(ucMap.keySet());
+        List<Course> courses = courseMapper.selectList(
+                new LambdaQueryWrapper<Course>().in(Course::getCourseId, courseIds));
+        for (Course c : courses) {
+            UserCourse uc = ucMap.get(c.getCourseId());
+            if (uc != null) {
+                c.setUserRole(uc.getRole());
+                c.setPinned(Boolean.TRUE.equals(uc.getPinned()));
+                c.setSortOrder(uc.getSortOrder());
+                c.setArchived(Boolean.TRUE.equals(uc.getArchived()));
+            }
+        }
+        if (!courseIds.isEmpty()) {
+            Map<Long, Integer> studentCountMap = userCourseMapper.countStudentsByCourseIds(courseIds).stream()
+                    .collect(Collectors.toMap(
+                            m -> ((Number) m.get("course_id")).longValue(),
+                            m -> ((Number) m.get("total")).intValue()));
+            for (Course c : courses) {
+                c.setStudentCount(studentCountMap.getOrDefault(c.getCourseId(), 0));
+            }
+        }
+        return courses;
     }
 
     /** 生成6位不重复选课码 */

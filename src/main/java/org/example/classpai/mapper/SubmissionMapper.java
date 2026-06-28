@@ -12,38 +12,38 @@ import java.util.Map;
 @Mapper
 public interface SubmissionMapper extends BaseMapper<Submission> {
 
-    /** 学生：查哪些作业已提交 */
-    @Select("<script>SELECT hw_id FROM homework_submit WHERE hw_id IN " +
-            "<foreach collection='hwIds' item='id' open='(' separator=',' close=')'>#{id}</foreach> " +
-            "AND student_id = #{studentId}</script>")
-    List<Long> findSubmittedHwIds(@Param("hwIds") List<Long> hwIds, @Param("studentId") Long studentId);
+        /** 学生：查哪些作业已提交 */
+        @Select("<script>SELECT hw_id FROM homework_submit WHERE hw_id IN " +
+                        "<foreach collection='hwIds' item='id' open='(' separator=',' close=')'>#{id}</foreach> " +
+                        "AND student_id = #{studentId}</script>")
+        List<Long> findSubmittedHwIds(@Param("hwIds") List<Long> hwIds, @Param("studentId") Long studentId);
 
-    /** 教师：按作业统计已交人数（去重学生） */
-    @Select("<script>SELECT hw_id, COUNT(DISTINCT student_id) AS total FROM homework_submit WHERE hw_id IN " +
-            "<foreach collection='hwIds' item='id' open='(' separator=',' close=')'>#{id}</foreach> " +
-            "GROUP BY hw_id</script>")
-    List<Map<String, Object>> countSubmitByHwIds(@Param("hwIds") List<Long> hwIds);
+        /** 教师：按作业统计已交人数（去重学生） */
+        @Select("<script>SELECT hw_id, COUNT(DISTINCT student_id) AS total FROM homework_submit WHERE hw_id IN " +
+                        "<foreach collection='hwIds' item='id' open='(' separator=',' close=')'>#{id}</foreach> " +
+                        "GROUP BY hw_id</script>")
+        List<Map<String, Object>> countSubmitByHwIds(@Param("hwIds") List<Long> hwIds);
 
-    /** 教师：按作业统计已批人数（去重学生） */
-    @Select("<script>SELECT hw_id, COUNT(DISTINCT student_id) AS total FROM homework_submit WHERE hw_id IN " +
-            "<foreach collection='hwIds' item='id' open='(' separator=',' close=')'>#{id}</foreach> " +
-            "AND score IS NOT NULL GROUP BY hw_id</script>")
-    List<Map<String, Object>> countGradedByHwIds(@Param("hwIds") List<Long> hwIds);
+        /** 教师：按作业统计已批人数（去重学生） */
+        @Select("<script>SELECT hw_id, COUNT(DISTINCT student_id) AS total FROM homework_submit WHERE hw_id IN " +
+                        "<foreach collection='hwIds' item='id' open='(' separator=',' close=')'>#{id}</foreach> " +
+                        "AND score IS NOT NULL GROUP BY hw_id</script>")
+        List<Map<String, Object>> countGradedByHwIds(@Param("hwIds") List<Long> hwIds);
 
-    /** 教师批阅页：获取课程所有学生及其对该作业的最新提交状态 */
-    @Select("SELECT u.user_id AS student_id, u.user_name, " +
-            "hs.submit_id, hs.submit_content, hs.score, hs.submit_time, " +
-            "CASE WHEN hs.submit_id IS NOT NULL THEN 1 ELSE 0 END AS submitted " +
-            "FROM user_course uc " +
-            "JOIN user u ON uc.user_id = u.user_id " +
-            "LEFT JOIN (SELECT hs.* FROM homework_submit hs " +
-            "           INNER JOIN (SELECT student_id, MAX(submit_id) AS max_id " +
-            "                       FROM homework_submit WHERE hw_id = #{hwId} " +
-            "                       GROUP BY student_id) latest " +
-            "           ON hs.submit_id = latest.max_id) hs " +
-            "ON hs.student_id = uc.user_id " +
-            "WHERE uc.course_id = (SELECT course_id FROM homework WHERE hw_id = #{hwId}) " +
-            "AND uc.role = 'student' " +
-            "ORDER BY u.user_id")
-    List<Submission> findGradingListByHwId(@Param("hwId") Long hwId);
+        /** 教师批阅页：获取课程所有学生及其对该作业的最新提交状态 */
+        @Select("SELECT u.user_id AS student_id, u.user_name, " +
+                        "hs.submit_id, hs.submit_content, hs.score, hs.submit_time, " +
+                        "CASE WHEN hs.submit_id IS NOT NULL THEN 1 ELSE 0 END AS submitted " +
+                        "FROM user_course uc " +
+                        "JOIN user u ON uc.user_id = u.user_id " +
+                        "LEFT JOIN (SELECT hs.* FROM homework_submit hs " +
+                        "           INNER JOIN (SELECT student_id, MAX(submit_id) AS max_id " +
+                        "                       FROM homework_submit WHERE hw_id = #{hwId} " +
+                        "                       GROUP BY student_id) latest " +
+                        "           ON hs.submit_id = latest.max_id) hs " +
+                        "ON hs.student_id = uc.user_id " +
+                        "WHERE uc.course_id = (SELECT course_id FROM homework WHERE hw_id = #{hwId}) " +
+                        "AND uc.role = 'student' " +
+                        "ORDER BY u.user_id")
+        List<Submission> findGradingListByHwId(@Param("hwId") Long hwId);
 }
