@@ -109,6 +109,16 @@
               <label>作业标题 <span class="cw-req">*</span></label>
               <input v-model="createForm.title" type="text" placeholder="请输入作业标题" class="cw-input" required />
             </div>
+            <div class="cw-field-row">
+              <div class="cw-field">
+                <label>满分</label>
+                <input v-model.number="createForm.totalScore" type="number" min="1" placeholder="默认100" class="cw-input" style="width:120px" />
+              </div>
+              <div class="cw-field">
+                <label>最大提交次数</label>
+                <input v-model.number="createForm.maxSubmissions" type="number" min="1" placeholder="不限制" class="cw-input" style="width:120px" />
+              </div>
+            </div>
             <div class="cw-field">
               <label>作业内容</label>
               <textarea v-model="createForm.content" rows="6" placeholder="请输入作业内容描述..." class="cw-input cw-textarea"></textarea>
@@ -326,7 +336,7 @@ function changePage(p) { page.value = p; loadList() }
 const showCreate = ref(false)
 const submitting = ref(false)
 const createError = ref('')
-const createForm = reactive({ title: '', content: '', startTime: '', deadline: '', files: [] })
+const createForm = reactive({ title: '', content: '', startTime: '', deadline: '', maxSubmissions: '', totalScore: '', files: [] })
 
 function openCreate() {
   createError.value = ''
@@ -334,6 +344,8 @@ function openCreate() {
   createForm.content = ''
   createForm.startTime = nowLocal()
   createForm.deadline = ''
+  createForm.maxSubmissions = ''
+  createForm.totalScore = ''
   createForm.files = []
   showCreate.value = true
 }
@@ -359,6 +371,8 @@ async function handleCreate() {
       fd.append('startTime', String(Math.floor(new Date(createForm.startTime).getTime() / 1000)))
     }
     fd.append('deadline', String(Math.floor(new Date(createForm.deadline).getTime() / 1000)))
+    if (createForm.maxSubmissions) fd.append('maxSubmissions', createForm.maxSubmissions)
+    if (createForm.totalScore)     fd.append('totalScore', createForm.totalScore)
     createForm.files.forEach(f => fd.append('files', f))
 
     await api.createHomework(props.courseId, fd)

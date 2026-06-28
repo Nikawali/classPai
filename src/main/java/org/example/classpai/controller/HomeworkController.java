@@ -39,6 +39,8 @@ public class HomeworkController {
                                    @RequestParam String content,
                                    @RequestParam(required = false) Long startTime,
                                    @RequestParam(required = false) Long deadline,
+                                   @RequestParam(required = false) Integer maxSubmissions,
+                                   @RequestParam(required = false) Integer totalScore,
                                    @RequestParam(required = false) MultipartFile[] files,
                                    HttpServletRequest request) {
         User user = (User) request.getAttribute("currentUser");
@@ -47,6 +49,8 @@ public class HomeworkController {
         dto.setContent(content);
         dto.setStartTime(startTime);
         dto.setDeadline(deadline);
+        dto.setMaxSubmissions(maxSubmissions);
+        dto.setTotalScore(totalScore);
         return homeworkService.createHomework(courseId, dto, files, user);
     }
 

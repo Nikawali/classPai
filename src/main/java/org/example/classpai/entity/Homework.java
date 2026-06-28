@@ -25,10 +25,8 @@ public class Homework {
     private LocalDateTime createTime;
 
     /** 该作业最多允许提交次数（null=不限） */
-    @TableField(exist = false)
     private Integer maxSubmissions;
 
     /** 作业满分 */
-    @TableField(exist = false)
     private Integer totalScore;
 }
