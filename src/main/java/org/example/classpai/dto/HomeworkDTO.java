@@ -10,4 +10,5 @@ public class HomeworkDTO {
     private Long startTime;
     /** 截止时间（Unix 秒级时间戳） */
     private Long deadline;
+    private Integer maxSubmissions;
 }

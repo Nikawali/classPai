@@ -122,6 +122,7 @@ public class HomeworkServiceImpl implements HomeworkService {
         hw.setCourseId(courseId);
         hw.setTitle(dto.getTitle());
         hw.setContent(dto.getContent());
+        hw.setMaxSubmissions(dto.getMaxSubmissions());
         if (dto.getStartTime() != null) {
             hw.setStartTime(LocalDateTime.ofInstant(Instant.ofEpochSecond(dto.getStartTime()), ZoneId.systemDefault()));
         }
