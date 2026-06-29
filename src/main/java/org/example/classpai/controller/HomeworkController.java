@@ -55,7 +55,11 @@ public class HomeworkController {
         dto.setDeadline(deadline);
         dto.setMaxSubmissions(maxSubmissions);
         dto.setTotalScore(totalScore);
-        return homeworkService.createHomework(courseId, dto, files, user);
+        Result<Homework> result = homeworkService.createHomework(courseId, dto, files, user);
+        if (result.getData() != null) {
+            messageService.notifyNewHomework(result.getData().getHwId(), user);
+        }
+        return result;
     }
 
     @GetMapping("/course/{courseId}")

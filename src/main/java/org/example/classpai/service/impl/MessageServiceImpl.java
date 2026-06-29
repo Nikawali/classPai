@@ -71,6 +71,35 @@ public class MessageServiceImpl extends BaseCourseServiceImpl implements Message
     }
 
     @Override
+    @Transactional
+    public Result<?> notifyNewHomework(Long hwId, User teacher) {
+        Homework hw = homeworkMapper.selectById(hwId);
+        if (hw == null) {
+            throw new BusinessException(404, "作业不存在");
+        }
+        checkTeacher(hw.getCourseId(), teacher.getUserId());
+        Course course = courseMapper.selectById(hw.getCourseId());
+        List<UserCourse> students = userCourseMapper.selectList(
+                new LambdaQueryWrapper<UserCourse>()
+                        .eq(UserCourse::getCourseId, hw.getCourseId())
+                        .eq(UserCourse::getRole, "student"));
+        if (students.isEmpty()) {
+            return Result.success("课程暂无学生");
+        }
+        String courseName = course != null ? course.getCourseName() : "未知课程";
+        for (UserCourse uc : students) {
+            Message msg = new Message();
+            msg.setSenderId(teacher.getUserId());
+            msg.setReceiverId(uc.getUserId());
+            msg.setCourseId(hw.getCourseId());
+            msg.setContent(courseName + "发布了新作业：" + hw.getTitle() + "，请及时完成并提交");
+            msg.setIsRead(false);
+            messageMapper.insert(msg);
+        }
+        return Result.success("已通知" + students.size() + "位学生");
+    }
+
+    @Override
     public Result<List<Message>> getMessages(User user) {
         List<Message> messages = messageMapper.findMessagesByUserId(user.getUserId());
         return Result.success(messages);
