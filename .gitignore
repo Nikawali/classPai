@@ -32,7 +32,14 @@ build/
 ### VS Code ###
 .vscode/
 
-src/main/resources/application.yml
+### 配置文件（含密钥等敏感信息）###
+src/main/resources/
 
+### 上传文件目录 ###
+uploads/
+
+
+
+### Node ###
 node_modules/
 classPai-Web/.vite/
