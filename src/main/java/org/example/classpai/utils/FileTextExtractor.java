@@ -1,4 +1,4 @@
-package org.example.classpai.util;
+package org.example.classpai.utils;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;

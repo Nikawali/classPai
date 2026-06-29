@@ -14,7 +14,7 @@ import org.example.classpai.mapper.*;
 import org.example.classpai.service.HomeworkService;
 import org.example.classpai.vo.HomeworkListVO;
 import org.example.classpai.vo.StudentHomeworkVO;
-import org.example.classpai.util.FileTextExtractor;
+import org.example.classpai.utils.FileTextExtractor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
