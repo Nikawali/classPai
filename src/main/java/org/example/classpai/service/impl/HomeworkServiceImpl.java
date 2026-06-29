@@ -145,7 +145,7 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
         hw.setTitle(dto.getTitle());
         hw.setContent(dto.getContent());
         hw.setMaxSubmissions(dto.getMaxSubmissions());
-        hw.setTotalScore(dto.getTotalScore());
+        hw.setTotalScore(dto.getTotalScore() != null ? dto.getTotalScore() : 100);
         if (dto.getStartTime() != null) {
             hw.setStartTime(LocalDateTime.ofInstant(Instant.ofEpochSecond(dto.getStartTime()), ZoneId.systemDefault()));
         }
@@ -349,6 +349,37 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
         if (ungraded.isEmpty())
             return Result.success("没有待批改的提交");
 
+        // 预扫描：检查所有附件（教师的 + 学生提交的），含有不支持的文件类型则拒绝批改
+        List<String> unsupportedAll = new ArrayList<>();
+
+        // 检查教师作业附件
+        List<HomeworkFile> hwFiles = homeworkFileMapper.selectList(
+                new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hwId));
+        for (HomeworkFile hf : hwFiles) {
+            if (!FileTextExtractor.isSupported(hf.getFilePath())) {
+                unsupportedAll.add(hf.getFileName() != null ? hf.getFileName() : hf.getFilePath());
+            }
+        }
+
+        // 检查学生提交附件
+        for (Submission sub : ungraded) {
+            List<SubmitFile> files = submitFileMapper.selectList(
+                    new LambdaQueryWrapper<SubmitFile>().eq(SubmitFile::getSubmitId, sub.getSubmitId()));
+            for (SubmitFile sf : files) {
+                if (!FileTextExtractor.isSupported(sf.getFilePath())) {
+                    String name = sf.getFilePath();
+                    unsupportedAll.add(name.substring(name.lastIndexOf('/') + 1));
+                }
+            }
+        }
+
+        if (!unsupportedAll.isEmpty()) {
+            List<String> unique = unsupportedAll.stream().distinct().collect(Collectors.toList());
+            throw new BusinessException(400,
+                    "无法使用AI批改。以下文件类型不支持文字提取：" + String.join("、", unique)
+                    + "。请确保题目与学生提交的附件为PDF/Word/纯文本格式。");
+        }
+
         String question = buildQuestionText(hw);
 
         AtomicInteger graded = new AtomicInteger(0);
@@ -359,6 +390,7 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
                     try {
                         // ① 提取文档文字（CPU密集，多线程并行）
                         String answer = buildAnswerText(sub);
+                        System.out.println(answer);
                         // ② 调用AI评分（IO密集，信号量限制并发数）
                         aiSemaphore.acquire();
                         try {
@@ -430,12 +462,22 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
         // 提取教师上传的PDF/Word附件文字
         List<HomeworkFile> hwFiles = homeworkFileMapper.selectList(
                 new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hw.getHwId()));
+        List<String> unsupportedNames = new ArrayList<>();
         for (HomeworkFile hf : hwFiles) {
+            String fileName = hf.getFileName();
+            if (!FileTextExtractor.isSupported(hf.getFilePath())) {
+                unsupportedNames.add(fileName);
+                continue;
+            }
             String text = extractFileText(hf.getFilePath());
             if (!text.isEmpty()) {
-                sb.append("\n【附件文字：").append(hf.getFileName()).append("】\n");
+                sb.append("\n【附件文字：").append(fileName).append("】\n");
                 sb.append(text).append("\n");
             }
+        }
+        if (!unsupportedNames.isEmpty()) {
+            sb.insert(0, "【注意】以下附件文件类型不支持文字提取，AI批改时将忽略其内容："
+                    + String.join("、", unsupportedNames) + "\n\n");
         }
         return sb.toString().trim();
     }
@@ -449,11 +491,22 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
         // 提取学生提交的PDF/Word附件文字
         List<SubmitFile> files = submitFileMapper.selectList(
                 new LambdaQueryWrapper<SubmitFile>().eq(SubmitFile::getSubmitId, sub.getSubmitId()));
+        List<String> unsupportedNames = new ArrayList<>();
         for (SubmitFile sf : files) {
-            String text = extractFileText(sf.getFilePath());
+            String fileName = sf.getFilePath();
+            String shortName = fileName.substring(fileName.lastIndexOf('/') + 1);
+            if (!FileTextExtractor.isSupported(fileName)) {
+                unsupportedNames.add(shortName);
+                continue;
+            }
+            String text = extractFileText(fileName);
             if (!text.isEmpty()) {
                 sb.append("\n【附件文字】\n").append(text).append("\n");
             }
+        }
+        if (!unsupportedNames.isEmpty()) {
+            sb.insert(0, "【注意】以下附件文件类型不支持文字提取，AI将无法读取其内容："
+                    + String.join("、", unsupportedNames) + "。请仅基于可用文本内容评分。\n\n");
         }
         return sb.toString().trim();
     }

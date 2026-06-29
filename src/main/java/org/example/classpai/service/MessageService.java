@@ -21,4 +21,7 @@ public interface MessageService {
 
     /** 标记所有消息为已读 */
     Result<?> markAsRead(User user);
+
+    /** 教师布置作业后自动通知全班学生 */
+    Result<?> notifyNewHomework(Long hwId, User teacher);
 }
