@@ -53,4 +53,4 @@ package-lock.json
 node_modules/
 classPai-Web/.vite/
 classPai-Web/dist/
-classPai-Web/public/
+
