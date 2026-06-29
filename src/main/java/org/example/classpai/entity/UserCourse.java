@@ -29,6 +29,9 @@ public class UserCourse {
     /** 置顶排序（越小越靠前） */
     private Integer sortOrder;
 
+    /** 是否已归档：0=在读，1=已归档 */
+    private Boolean archived;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime joinTime;
 }

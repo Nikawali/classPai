@@ -42,4 +42,8 @@ public class Course {
     /** 当前用户的置顶排序 */
     @TableField(exist = false)
     private Integer sortOrder;
+
+    /** 当前用户是否已归档该课程 */
+    @TableField(exist = false)
+    private Boolean archived;
 }

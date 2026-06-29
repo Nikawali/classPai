@@ -121,6 +121,18 @@
             <line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
+        <button class="tab-icon-btn" @click="showMoreMenu = !showMoreMenu">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <circle cx="12" cy="5" r="2"/>
+            <circle cx="12" cy="12" r="2"/>
+            <circle cx="12" cy="19" r="2"/>
+          </svg>
+        </button>
+        <div v-if="showMoreMenu" class="more-menu-backdrop" @click="showMoreMenu = false"></div>
+        <div v-if="showMoreMenu" class="more-menu">
+          <button class="more-menu-item" @click="handleArchiveManage(), showMoreMenu = false">归档管理</button>
+          <button class="more-menu-item cancel" @click="showMoreMenu = false">取消</button>
+        </div>
       </div>
     </div>
 
@@ -230,6 +242,26 @@
       </div>
     </div>
     </template>
+
+    <!-- ==================== 已归档课程弹窗 ==================== -->
+    <div v-if="showArchivedDialog" class="dialog-overlay" @click.self="showArchivedDialog = false">
+      <div class="dialog-card" style="width: 380px; text-align: left;">
+        <h3 class="dialog-title">已归档课程</h3>
+        <div v-if="archivedCourses.length === 0" style="text-align:center;padding:20px 0;color:#aaa;">暂无已归档课程</div>
+        <div v-else class="archived-list">
+          <div v-for="c in archivedCourses" :key="c.courseId" class="archived-item" @click="enterArchivedCourse(c)">
+            <div class="archived-info">
+              <p class="archived-name">{{ c.courseName }}</p>
+              <p class="archived-code">{{ c.courseCode }} · {{ c.studentCount || 0 }}名学生</p>
+            </div>
+            <button class="archived-unarchive-btn" @click.stop="handleUnarchive(c.courseId)">取消归档</button>
+          </div>
+        </div>
+        <div class="dialog-actions" style="margin-top: 16px;">
+          <button class="dialog-btn-cancel" @click="showArchivedDialog = false">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -250,6 +282,7 @@ function parseHash() {
 }
 const selectedCourseId = ref(parseHash())
 const showSearch = ref(false)
+const showMoreMenu = ref(false)
 const searchKeyword = ref('')
 const pinnedCourses = ref([])
 
@@ -407,16 +440,29 @@ function openCardMenu(course) {
 function closeBottomSheet() {
   bottomSheet.value = { course: null }
 }
-function handleSheetAction(action) {
+async function handleSheetAction(action) {
   const name = bottomSheet.value.course?.courseName || ''
   const id = bottomSheet.value.course?.courseId
   closeBottomSheet()
   if (action === 'pin' && id) {
     handlePin(id)
   } else if (action === 'quit') {
-    alert('退课功能开发中（课程：' + name + '）')
+    if (!id) return
+    if (!confirm(`确认退出课程「${name}」？退出后需重新加入。`)) return
+    try {
+      await api.quitCourse(id)
+      await loadAllCourses()
+    } catch (e) {
+      alert(e.message || '退课失败')
+    }
   } else if (action === 'archive') {
-    alert('归档功能开发中（课程：' + name + '）')
+    if (!id) return
+    try {
+      await api.archiveCourse(id)
+      await loadAllCourses()
+    } catch (e) {
+      alert(e.message || '归档失败')
+    }
   }
 }
 
@@ -524,6 +570,35 @@ function handleSearch() {
     // TODO: 搜索后展示结果（后端接口待实现）
     console.log('搜索结果:', res)
   }).catch(e => console.error('搜索失败:', e))
+}
+
+async function handleArchiveManage() {
+  try {
+    const res = await api.getArchivedCourses()
+    archivedCourses.value = res.data || []
+    showArchivedDialog.value = true
+  } catch (e) {
+    alert(e.message || '加载失败')
+  }
+}
+
+async function handleUnarchive(courseId) {
+  try {
+    await api.unarchiveCourse(courseId)
+    archivedCourses.value = archivedCourses.value.filter(c => c.courseId !== courseId)
+    await loadAllCourses()
+  } catch (e) {
+    alert(e.message || '取消归档失败')
+  }
+}
+
+const archivedCourses = ref([])
+const showArchivedDialog = ref(false)
+
+function enterArchivedCourse(course) {
+  showArchivedDialog.value = false
+  selectedCourseId.value = course.courseId
+  location.hash = '#/course/' + course.courseId
 }
 
 // ==================== 数据加载 ====================
@@ -911,7 +986,7 @@ onMounted(() => {
   box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
 
-.tab-actions { display: flex; gap: 6px; }
+.tab-actions { display: flex; gap: 6px; position: relative; }
 
 .tab-icon-btn {
   width: 34px; height: 34px;
@@ -921,6 +996,24 @@ onMounted(() => {
   cursor: pointer; transition: color .15s;
 }
 .tab-icon-btn:hover { color: #4a6cf7; }
+
+.more-menu-backdrop {
+  position: fixed; inset: 0; z-index: 99;
+}
+
+.more-menu {
+  position: absolute; right: 0; top: 42px;
+  background: #fff; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.12);
+  min-width: 140px; z-index: 100; overflow: hidden;
+}
+.more-menu-item {
+  display: block; width: 100%; padding: 11px 18px;
+  border: none; background: none; font-size: 13px; color: #333;
+  text-align: left; cursor: pointer; transition: background .15s;
+}
+.more-menu-item:hover { background: #f5f7ff; }
+.more-menu-item.cancel { color: #999; }
+.more-menu-item.cancel:hover { background: #f8f8f8; }
 
 .search-bar {
   display: flex; align-items: center; gap: 8px;
@@ -1177,6 +1270,40 @@ onMounted(() => {
   font-size: 12px;
   color: #e74c3c;
 }
+
+/* ==================== 已归档课程弹窗 ==================== */
+.archived-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.archived-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background .15s;
+}
+.archived-item:hover { background: #f8f9fb; }
+.archived-item:last-child { border-bottom: none; }
+.archived-info { flex: 1; min-width: 0; }
+.archived-name { font-size: 14px; font-weight: 500; color: #1a1a1a; margin-bottom: 2px; }
+.archived-code { font-size: 12px; color: #aaa; }
+.archived-unarchive-btn {
+  flex-shrink: 0;
+  margin-left: 12px;
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 6px;
+  background: #4a6cf7;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.archived-unarchive-btn:hover { opacity: .85; }
 
 /* ==================== 响应式 ==================== */
 @media (max-width: 480px) {

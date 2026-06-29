@@ -133,7 +133,8 @@ import { fmt, fmtSize, fileIcon } from '../utils/format.js'
 
 const props = defineProps({
   courseId:  { type: [String, Number], required: true },
-  homeworkId:{ type: [String, Number], required: true }
+  homeworkId:{ type: [String, Number], required: true },
+  archived:  { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['back', 'submit'])
@@ -156,6 +157,7 @@ const isDeadlineSoon = computed(() => {
   return (dl - now > 0 && dl - now <= 24 * 3600 * 1000)
 })
 const canSubmit = computed(() => {
+  if (props.archived) return false
   const s = detail.value?.submitStatus
   return s === 'unsubmitted' || s === 'submitted' || s === 'overdue'
 })

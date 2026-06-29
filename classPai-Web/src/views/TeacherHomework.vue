@@ -136,16 +136,20 @@
           <!-- 操作列 -->
           <span class="th-col-action">
             <template v-if="!s.submitted">
-              <button class="th-action-btn warn">催交</button>
+              <button class="th-action-btn warn" @click="handleUrge(s)">催交</button>
             </template>
             <template v-else-if="s.score == null">
-              <button class="th-action-btn primary">进入批阅</button>
+              <button class="th-action-btn primary" @click="openGrade(s)">进入批阅</button>
             </template>
             <template v-else>
-              <button class="th-action-btn ghost">查看</button>
+              <button class="th-action-btn ghost" @click="openGrade(s)">查看</button>
             </template>
+            <span v-if="s.files && s.files.length" class="th-file-badge">
+              <svg viewBox="0 0 24 24" width="11" height="11"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="13 2 13 9 20 9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+              {{ s.files.length }}个文件
+            </span>
           </span>
-        </div>
+          </div>
 
         <div v-if="filteredStudents.length === 0" class="th-empty">
           无匹配学生
@@ -170,12 +174,54 @@
           一键催交
         </button>
       </div>
+
+      <!-- ========== 评分弹窗 ========== -->
+      <Teleport to="body">
+        <div v-if="showGrade" class="th-overlay" @click.self="showGrade = false">
+          <div class="th-dialog">
+            <div class="th-dialog-header">
+              <h3>批阅 — {{ gradeTarget?.userName || gradeTarget?.studentId }}</h3>
+              <button class="th-dialog-close" @click="showGrade = false">&times;</button>
+            </div>
+            <form class="th-dialog-body" @submit.prevent="handleGrade">
+              <div class="th-field">
+                <label>学生提交内容</label>
+                <div class="th-submit-content">{{ gradeTarget?.submitContent || '无文本内容' }}</div>
+              </div>
+              <div v-if="gradeTarget?.files?.length" class="th-field">
+                <label>提交的文件</label>
+                <div class="th-file-list">
+                  <a v-for="(f, fi) in gradeTarget.files" :key="fi" :href="f.filePath" target="_blank" class="th-file-link">
+                    <svg viewBox="0 0 24 24" width="14" height="14"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="13 2 13 9 20 9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                    {{ f.fileName }}
+                  </a>
+                </div>
+              </div>
+              <div class="th-field">
+                <label>分数 <span class="th-req">*</span>（满分 {{ gradeTarget?.totalScore || 100 }}）</label>
+                <input v-model.number="gradeForm.score" type="number" min="0" :max="gradeTarget?.totalScore || 100" placeholder="请输入分数" class="th-input" required />
+              </div>
+              <div class="th-field">
+                <label>评语</label>
+                <textarea v-model="gradeForm.comment" rows="3" placeholder="可选..." class="th-input th-textarea"></textarea>
+              </div>
+              <p v-if="gradeError" class="th-grade-error">{{ gradeError }}</p>
+              <div class="th-dialog-actions">
+                <button type="button" class="th-btn-cancel" @click="showGrade = false">取消</button>
+                <button type="submit" class="th-btn-submit" :disabled="gradingSubmitting">
+                  {{ gradingSubmitting ? '提交中...' : '确认评分' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Teleport>
     </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api/request.js'
 import { fmtDeadline } from '../utils/format.js'
 
@@ -190,6 +236,47 @@ const homework = ref({})
 const students = ref([])
 const keyword = ref('')
 const showSettings = ref(false)
+
+// ========== 评分 ==========
+const showGrade = ref(false)
+const gradeTarget = ref(null)
+const gradingSubmitting = ref(false)
+const gradeError = ref('')
+const gradeForm = reactive({ score: '', comment: '' })
+
+function openGrade(s) {
+  gradeTarget.value = s
+  gradeForm.score = s.score != null ? String(s.score) : ''
+  gradeForm.comment = s.comment || ''
+  gradeError.value = ''
+  showGrade.value = true
+}
+
+async function handleGrade() {
+  if (gradeForm.score === '' || gradeForm.score == null) {
+    gradeError.value = '请输入分数'
+    return
+  }
+  gradingSubmitting.value = true
+  gradeError.value = ''
+  try {
+    await api.gradeHomework(gradeTarget.value.submitId, {
+      score: Number(gradeForm.score),
+      comment: gradeForm.comment || ''
+    })
+    showGrade.value = false
+    // 刷新数据
+    await loadData()
+  } catch (e) {
+    gradeError.value = e.message
+  } finally {
+    gradingSubmitting.value = false
+  }
+}
+
+function handleUrge(s) {
+  alert('催交通知已发送给 ' + (s.userName || s.studentId))
+}
 
 const filteredStudents = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
@@ -405,8 +492,13 @@ onMounted(() => { loadData() })
 .th-action-btn.primary:hover { background: #2377E4; color: #fff; }
 .th-action-btn.warn { background: #fef2f2; color: #e74c3c; }
 .th-action-btn.warn:hover { background: #e74c3c; color: #fff; }
-.th-action-btn.ghost { background: transparent; color: #999; }
-.th-action-btn.ghost:hover { background: #f0f0f0; }
+.th-action-btn.ghost { background: #f8fafc; color: #64748b; }
+.th-action-btn.ghost:hover { background: #f1f5f9; }
+
+.th-file-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: #3b82f6; margin-top: 4px; cursor: default;
+}
 
 .th-empty {
   text-align: center; padding: 32px 0; color: #bbb; font-size: 13px;
@@ -425,4 +517,61 @@ onMounted(() => { loadData() })
 .th-footer-btn:hover { background: #d0e2fd; }
 .th-footer-btn.warn { background: #fef2f2; color: #e74c3c; }
 .th-footer-btn.warn:hover { background: #fde2e2; }
+</style>
+
+<!-- ===== 批阅弹窗样式（非 scoped，Teleport 到 body） ===== -->
+<style>
+.th-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,.5);
+  display: flex; justify-content: center; align-items: flex-start;
+  padding: 30px 20px; z-index: 1000; overflow-y: auto;
+}
+.th-dialog {
+  background: #fff; border-radius: 14px; width: 560px; max-width: 95vw;
+  box-shadow: 0 25px 60px rgba(0,0,0,.18);
+}
+.th-dialog-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 28px; border-bottom: 1px solid #e2e8f0;
+}
+.th-dialog-header h3 { font-size: 18px; font-weight: 700; color: #1e293b; }
+.th-dialog-close {
+  width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+  background: none; border: none; font-size: 22px; color: #94a3b8; cursor: pointer; border-radius: 8px;
+}
+.th-dialog-close:hover { background: #f8fafc; color: #1e293b; }
+.th-dialog-body { padding: 24px 28px; max-height: 60vh; overflow-y: auto; }
+.th-dialog-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.th-field { margin-bottom: 16px; }
+.th-field label { display: block; font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
+.th-req { color: #ef4444; }
+.th-input {
+  width: 100%; padding: 9px 14px; border: 1px solid #e2e8f0; border-radius: 8px;
+  font-size: 13px; color: #1e293b; outline: none; transition: border-color .2s; background: #fff; box-sizing: border-box;
+}
+.th-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+.th-textarea { resize: vertical; font-family: inherit; }
+.th-submit-content {
+  padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;
+  font-size: 13px; color: #475569; white-space: pre-wrap; max-height: 200px; overflow-y: auto;
+}
+.th-grade-error { color: #ef4444; font-size: 13px; margin-top: 8px; }
+.th-btn-cancel {
+  padding: 10px 24px; background: #f8fafc; border: none; border-radius: 8px; font-size: 14px; color: #64748b; cursor: pointer;
+}
+.th-btn-submit {
+  padding: 10px 28px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background .2s;
+}
+.th-btn-submit:hover { background: #2563eb; }
+.th-btn-submit:disabled { background: #a5b4fc; cursor: not-allowed; }
+
+.th-file-list {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.th-file-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;
+  font-size: 13px; color: #0369a1; text-decoration: none; transition: background .15s; word-break: break-all;
+}
+.th-file-link:hover { background: #e0f2fe; }
 </style>

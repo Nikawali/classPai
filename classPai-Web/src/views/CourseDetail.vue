@@ -9,14 +9,14 @@
 
     <!-- ==================== 教师作业批阅页 ==================== -->
     <TeacherHomework
-      v-if="showGrading"
+      v-else-if="showGrading"
       :hwId="gradingHwId"
       @back="backFromGrading"
     />
 
     <!-- ==================== 教师发布作业页 ==================== -->
     <CourseHomework
-      v-if="showAddHomework"
+      v-else-if="showAddHomework"
       :courseId="course.courseId"
       :courseName="course.courseName"
       :courseCode="course.courseCode"
@@ -28,6 +28,7 @@
       v-else-if="selectedHomeworkId && !showSubmit"
       :courseId="course.courseId"
       :homeworkId="selectedHomeworkId"
+      :archived="!!course.archived"
       @back="backFromHomework"
       @submit="onStudentSubmit"
     />
@@ -67,7 +68,7 @@
       <!-- 左侧信息 -->
       <div class="banner-main">
         <p class="banner-class">{{ classText }}</p>
-        <h1 class="banner-title">{{ course.courseName }}</h1>
+        <h1 class="banner-title">{{ course.courseName }}<span v-if="isArchived" class="archived-tag">该课程已归档</span></h1>
         <div class="banner-code-row">
           <span class="banner-code">加课码 {{ course.courseCode }}</span>
           <button class="banner-code-copy" @click.stop="copyCode">
@@ -224,7 +225,7 @@
       <div v-else-if="activeTab === 'homework'" class="homework-panel">
         <div class="homework-header">
           <h3 class="homework-title">作业列表</h3>
-          <button v-if="isTeacher" class="add-hw-btn" @click="addHomework">+ 添加作业</button>
+          <button v-if="isTeacher && !isArchived" class="add-hw-btn" @click="addHomework">+ 添加作业</button>
         </div>
 
         <div v-if="hwLoading" class="homework-empty">
@@ -390,7 +391,7 @@ function isMembersHash() {
 }
 
 function onHomeworkClick(hw) {
-  if (isTeacher.value) {
+  if (isTeacher.value && !isArchived.value) {
     enterGrading(hw)
   } else {
     enterHomework(hw.hwId)
@@ -506,6 +507,7 @@ const tabs = [
 ]
 
 const isTeacher = computed(() => course.value?.userRole === 'teacher')
+const isArchived = computed(() => !!course.value?.archived)
 
 const studentFuncButtons = [
   { type: 'attendance',  label: '考勤',   icon: 'attendance' },
@@ -710,6 +712,21 @@ onMounted(() => { loadDetail() })
 }
 .stat-clickable:hover { background: rgba(255,255,255,.1); }
 .stat-arrow { flex-shrink: 0; }
+
+/* ==================== 归档标签 ==================== */
+.archived-tag {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 10px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #92400e;
+  background: rgba(255,255,255,.25);
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: 10px;
+  letter-spacing: 0;
+}
 
 /* ==================== 功能按钮 ==================== */
 .func-buttons {

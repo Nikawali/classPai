@@ -112,6 +112,28 @@ export const api = {
     })
   },
 
+  // ========== 退课 ==========
+  quitCourse(courseId) {
+    return request(`/course/${courseId}/quit`, {
+      method: 'DELETE'
+    })
+  },
+
+  // ========== 归档 ==========
+  getArchivedCourses() {
+    return request('/course/archived')
+  },
+  archiveCourse(courseId) {
+    return request(`/course/${courseId}/archive`, {
+      method: 'POST'
+    })
+  },
+  unarchiveCourse(courseId) {
+    return request(`/course/${courseId}/unarchive`, {
+      method: 'POST'
+    })
+  },
+
   // ========== 搜索 ==========
   searchCourses(keyword) {
     return request(`/course/search?keyword=${encodeURIComponent(keyword)}`)

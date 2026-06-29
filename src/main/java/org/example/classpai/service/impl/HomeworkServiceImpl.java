@@ -53,17 +53,17 @@ public class HomeworkServiceImpl implements HomeworkService {
     private final CourseMapper courseMapper;
 
     public HomeworkServiceImpl(HomeworkMapper homeworkMapper,
-                               SubmissionMapper submissionMapper,
-                               UserCourseMapper userCourseMapper,
-                               HomeworkFileMapper homeworkFileMapper,
-                               SubmitFileMapper submitFileMapper,
-                               RestTemplate restTemplate,
-                               CourseMapper courseMapper) {
+            SubmissionMapper submissionMapper,
+            UserCourseMapper userCourseMapper,
+            HomeworkFileMapper homeworkFileMapper,
+            SubmitFileMapper submitFileMapper,
+            RestTemplate restTemplate,
+            CourseMapper courseMapper) {
         this.homeworkMapper = homeworkMapper;
         this.submissionMapper = submissionMapper;
         this.userCourseMapper = userCourseMapper;
         this.homeworkFileMapper = homeworkFileMapper;
-        this.submitFileMapper=submitFileMapper;
+        this.submitFileMapper = submitFileMapper;
         this.restTemplate = restTemplate;
         this.courseMapper = courseMapper;
     }
@@ -71,10 +71,21 @@ public class HomeworkServiceImpl implements HomeworkService {
     private void checkTeacher(Long courseId, Long userId) {
         LambdaQueryWrapper<UserCourse> w = new LambdaQueryWrapper<>();
         w.eq(UserCourse::getCourseId, courseId)
-         .eq(UserCourse::getUserId, userId)
-         .eq(UserCourse::getRole, "teacher");
+                .eq(UserCourse::getUserId, userId)
+                .eq(UserCourse::getRole, "teacher");
         if (userCourseMapper.selectCount(w) == 0) {
             throw new BusinessException(403, "无权操作");
+        }
+    }
+
+    /** 检查课程是否已被当前用户归档，已归档则禁止写操作 */
+    private void checkNotArchived(Long courseId, Long userId) {
+        UserCourse uc = userCourseMapper.selectOne(
+                new LambdaQueryWrapper<UserCourse>()
+                        .eq(UserCourse::getCourseId, courseId)
+                        .eq(UserCourse::getUserId, userId));
+        if (uc != null && Boolean.TRUE.equals(uc.getArchived())) {
+            throw new BusinessException(403, "课程已归档，无法进行此操作");
         }
     }
 
@@ -85,18 +96,22 @@ public class HomeworkServiceImpl implements HomeworkService {
 
     /**
      * 保存上传文件到磁盘并回调创建对应实体记录
+     * 
      * @param files  上传文件数组
      * @param subDir 子目录名，如 "homework"、"submit"
      * @param saver  实体创建回调（接收 newName, filePath, fileSize, fileType）
      */
     private void saveFiles(MultipartFile[] files, String subDir, FileEntitySaver saver) {
-        if (files == null || files.length == 0) return;
+        if (files == null || files.length == 0)
+            return;
         for (MultipartFile file : files) {
-            if (file.isEmpty()) continue;
+            if (file.isEmpty())
+                continue;
             try {
                 String dirPath = UPLOAD_BASE + File.separator + subDir;
                 File dir = new File(dirPath);
-                if (!dir.exists()) dir.mkdirs();
+                if (!dir.exists())
+                    dir.mkdirs();
                 String originalName = file.getOriginalFilename();
                 String ext = "";
                 if (originalName != null && originalName.contains(".")) {
@@ -118,6 +133,7 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Transactional
     public Result<Homework> createHomework(Long courseId, HomeworkDTO dto, MultipartFile[] files, User user) {
         checkTeacher(courseId, user.getUserId());
+        checkNotArchived(courseId, user.getUserId());
         Homework hw = new Homework();
         hw.setCourseId(courseId);
         hw.setTitle(dto.getTitle());
@@ -158,11 +174,14 @@ public class HomeworkServiceImpl implements HomeworkService {
             return PageResult.of(p.getTotal(), voList, p.getCurrent(), p.getSize());
         }
         List<Long> hwIds = voList.stream().map(HomeworkListVO::getHwId).collect(Collectors.toList());
-        String courseRole = userCourseMapper.selectOne(
+        UserCourse uc = userCourseMapper.selectOne(
                 new LambdaQueryWrapper<UserCourse>()
                         .eq(UserCourse::getCourseId, courseId)
-                        .eq(UserCourse::getUserId, user.getUserId())).getRole();
-        boolean isTeacher = "teacher".equalsIgnoreCase(courseRole);
+                        .eq(UserCourse::getUserId, user.getUserId()));
+        if (uc == null) {
+            throw new BusinessException(403, "非课程成员");
+        }
+        boolean isTeacher = "teacher".equalsIgnoreCase(uc.getRole());
         if (isTeacher) {
             long totalStudents = userCourseMapper.selectCount(
                     new LambdaQueryWrapper<UserCourse>()
@@ -194,7 +213,9 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Transactional
     public Result<Submission> submit(Long hwId, String content, MultipartFile[] files, User user) {
         Homework hw = homeworkMapper.selectById(hwId);
-        if (hw == null) throw new BusinessException(404, "作业不存在");
+        if (hw == null)
+            throw new BusinessException(404, "作业不存在");
+        checkNotArchived(hw.getCourseId(), user.getUserId());
         Long submittedCount = submissionMapper.selectCount(
                 new LambdaQueryWrapper<Submission>()
                         .eq(Submission::getHwId, hwId)
@@ -210,6 +231,7 @@ public class HomeworkServiceImpl implements HomeworkService {
         saveFiles(files, "submit", (newName, filePath, fileSize, fileType) -> {
             SubmitFile sf = new SubmitFile();
             sf.setSubmitId(sub.getSubmitId());
+            sf.setFileName(newName);
             sf.setFilePath(filePath);
             sf.setFileSize(fileSize);
             sf.setFileType(fileType);
@@ -222,7 +244,8 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Override
     public PageResult<Submission> listSubmissions(Long hwId, User user, int page, int pageSize) {
         Homework hw = homeworkMapper.selectById(hwId);
-        if (hw == null) throw new BusinessException(404, "作业不存在");
+        if (hw == null)
+            throw new BusinessException(404, "作业不存在");
         checkTeacher(hw.getCourseId(), user.getUserId());
         LambdaQueryWrapper<Submission> w = new LambdaQueryWrapper<>();
         w.eq(Submission::getHwId, hwId).orderByAsc(Submission::getSubmitTime);
@@ -234,9 +257,11 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Transactional
     public Result<?> grade(Long submitId, GradeDTO dto, User user) {
         Submission sub = submissionMapper.selectById(submitId);
-        if (sub == null) throw new BusinessException(404, "提交记录不存在");
+        if (sub == null)
+            throw new BusinessException(404, "提交记录不存在");
         Homework hw = homeworkMapper.selectById(sub.getHwId());
         checkTeacher(hw.getCourseId(), user.getUserId());
+        checkNotArchived(hw.getCourseId(), user.getUserId());
         sub.setScore(dto.getScore());
         sub.setComment(dto.getComment());
         submissionMapper.updateById(sub);
@@ -246,12 +271,27 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Override
     public Result<List<Submission>> getGradingList(Long hwId, User user) {
         Homework hw = homeworkMapper.selectById(hwId);
-        if (hw == null) throw new BusinessException(404, "作业不存在");
+        if (hw == null)
+            throw new BusinessException(404, "作业不存在");
         checkTeacher(hw.getCourseId(), user.getUserId());
         List<Submission> list = submissionMapper.findGradingListByHwId(hwId);
         int maxScore = hw.getTotalScore() != null ? hw.getTotalScore() : 100;
+        // 收集有提交记录的 submitId
+        List<Long> submitIds = list.stream()
+                .filter(s -> s.getSubmitId() != null)
+                .map(Submission::getSubmitId)
+                .collect(Collectors.toList());
+        // 批量查文件
+        List<SubmitFile> allFiles = submitIds.isEmpty()
+                ? List.of()
+                : submitFileMapper.selectList(
+                        new LambdaQueryWrapper<SubmitFile>().in(SubmitFile::getSubmitId, submitIds));
+        Map<Long, List<SubmitFile>> fileMap = allFiles.stream()
+                .collect(Collectors.groupingBy(SubmitFile::getSubmitId));
         for (Submission s : list) {
-            if (s.getTotalScore() == null) s.setTotalScore(maxScore);
+            if (s.getTotalScore() == null)
+                s.setTotalScore(maxScore);
+            s.setFiles(fileMap.getOrDefault(s.getSubmitId(), List.of()));
         }
         return Result.success(list);
     }
@@ -259,21 +299,25 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Override
     public Result<Homework> getHomework(Long hwId, User user) {
         Homework hw = homeworkMapper.selectById(hwId);
-        if (hw == null) throw new BusinessException(404, "作业不存在");
+        if (hw == null)
+            throw new BusinessException(404, "作业不存在");
         Long count = userCourseMapper.selectCount(
                 new LambdaQueryWrapper<UserCourse>()
                         .eq(UserCourse::getCourseId, hw.getCourseId())
                         .eq(UserCourse::getUserId, user.getUserId()));
-        if (count == 0) throw new BusinessException(403, "非课程成员");
+        if (count == 0)
+            throw new BusinessException(403, "非课程成员");
         return Result.success(hw);
     }
 
     @Override
     public Result<?> gradeByAI(Long submitId, User user) {
         Submission sub = submissionMapper.selectById(submitId);
-        if (sub == null) throw new BusinessException(404, "提交记录不存在");
+        if (sub == null)
+            throw new BusinessException(404, "提交记录不存在");
         Homework hw = homeworkMapper.selectById(sub.getHwId());
         checkTeacher(hw.getCourseId(), user.getUserId());
+        checkNotArchived(hw.getCourseId(), user.getUserId());
         JSONObject body = new JSONObject();
         body.put("model", "deepseek-chat");
         body.put("temperature", 0.2);
@@ -316,20 +360,25 @@ public class HomeworkServiceImpl implements HomeworkService {
                 new LambdaQueryWrapper<UserCourse>()
                         .eq(UserCourse::getCourseId, courseId)
                         .eq(UserCourse::getUserId, userId));
-        if (count == 0) throw new BusinessException(403, "非课程成员");
+        if (count == 0)
+            throw new BusinessException(403, "非课程成员");
     }
 
     private String calcSubmitStatus(Homework hw, List<Submission> submissions) {
-        if (!submissions.isEmpty() && submissions.get(0).getScore() != null) return "graded";
-        if (!submissions.isEmpty()) return "submitted";
-        if (hw.getDeadline() != null && LocalDateTime.now().isAfter(hw.getDeadline())) return "overdue";
+        if (!submissions.isEmpty() && submissions.get(0).getScore() != null)
+            return "graded";
+        if (!submissions.isEmpty())
+            return "submitted";
+        if (hw.getDeadline() != null && LocalDateTime.now().isAfter(hw.getDeadline()))
+            return "overdue";
         return "unsubmitted";
     }
 
     @Override
     public Result<StudentHomeworkVO> getStudentHomeworkDetail(Long hwId, User user) {
         Homework hw = homeworkMapper.selectById(hwId);
-        if (hw == null) throw new BusinessException(404, "作业不存在");
+        if (hw == null)
+            throw new BusinessException(404, "作业不存在");
         checkMembership(hw.getCourseId(), user.getUserId());
         Course course = courseMapper.selectById(hw.getCourseId());
         StudentHomeworkVO vo = new StudentHomeworkVO();
@@ -339,7 +388,8 @@ public class HomeworkServiceImpl implements HomeworkService {
         vo.setFiles(homeworkFileMapper.selectList(
                 new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hwId)));
         for (HomeworkFile f : vo.getFiles()) {
-            String name = f.getFilePath() != null ? f.getFilePath().substring(f.getFilePath().lastIndexOf("/") + 1) : "";
+            String name = f.getFilePath() != null ? f.getFilePath().substring(f.getFilePath().lastIndexOf("/") + 1)
+                    : "";
             f.setOriginalName(name);
             f.setFileName(name);
         }
@@ -358,7 +408,8 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Override
     public Result<StudentHomeworkVO> getSubmitPageData(Long hwId, User user) {
         Homework hw = homeworkMapper.selectById(hwId);
-        if (hw == null) throw new BusinessException(404, "作业不存在");
+        if (hw == null)
+            throw new BusinessException(404, "作业不存在");
         checkMembership(hw.getCourseId(), user.getUserId());
         Course course = courseMapper.selectById(hw.getCourseId());
         StudentHomeworkVO vo = new StudentHomeworkVO();
@@ -368,7 +419,8 @@ public class HomeworkServiceImpl implements HomeworkService {
         vo.setFiles(homeworkFileMapper.selectList(
                 new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hwId)));
         for (HomeworkFile f : vo.getFiles()) {
-            String name = f.getFilePath() != null ? f.getFilePath().substring(f.getFilePath().lastIndexOf("/") + 1) : "";
+            String name = f.getFilePath() != null ? f.getFilePath().substring(f.getFilePath().lastIndexOf("/") + 1)
+                    : "";
             f.setOriginalName(name);
             f.setFileName(name);
         }
