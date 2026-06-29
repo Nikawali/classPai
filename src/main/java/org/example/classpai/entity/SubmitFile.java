@@ -17,8 +17,6 @@ public class SubmitFile {
 
     private Long fileSize;
 
-    private String fileName;
-
     private String fileType;
 
     @TableField(fill = FieldFill.INSERT)

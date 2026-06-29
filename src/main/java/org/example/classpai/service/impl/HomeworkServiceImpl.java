@@ -231,7 +231,6 @@ public class HomeworkServiceImpl implements HomeworkService {
         saveFiles(files, "submit", (newName, filePath, fileSize, fileType) -> {
             SubmitFile sf = new SubmitFile();
             sf.setSubmitId(sub.getSubmitId());
-            sf.setFileName(newName);
             sf.setFilePath(filePath);
             sf.setFileSize(fileSize);
             sf.setFileType(fileType);
