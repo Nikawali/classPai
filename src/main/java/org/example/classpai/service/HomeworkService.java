@@ -30,11 +30,18 @@ public interface HomeworkService {
 
     Result<Homework> getHomework(Long hwId, User user);
 
-    Result<?> gradeByAI(Long submitId, User user);
+    /** 教师端：AI 一键批改所有未批改的提交 */
+    Result<?> gradeByAIBatch(Long hwId, User user);
 
     /** 学生端：获取作业详情（含提交记录、文件、状态） */
     Result<StudentHomeworkVO> getStudentHomeworkDetail(Long hwId, User user);
 
+    /** 教师端：获取作业详情（含文件、不含学生提交记录） */
+    Result<StudentHomeworkVO> getTeacherHomeworkDetail(Long hwId, User user);
+
     /** 学生端：获取提交页数据 */
     Result<StudentHomeworkVO> getSubmitPageData(Long hwId, User user);
+
+    /** 教师修改作业时间（开始时间未开始才能改，截止时间随时可改） */
+    Result<?> updateHomeworkTime(Long hwId, Long startTime, Long deadline, User user);
 }

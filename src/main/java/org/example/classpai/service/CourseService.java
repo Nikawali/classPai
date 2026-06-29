@@ -40,4 +40,7 @@ public interface CourseService {
 
     /** 获取用户已归档的课程列表 */
     Result<List<Course>> getArchivedCourses(User user);
+
+    /** 教师修改课程成员角色（学生→教师） */
+    Result<?> changeMemberRole(Long courseId, Long targetUserId, String role, User currentUser);
 }

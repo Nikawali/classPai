@@ -14,6 +14,7 @@ import org.example.classpai.vo.HomeworkListVO;
 import org.example.classpai.vo.StudentHomeworkVO;
 import org.example.classpai.mapper.HomeworkFileMapper;
 import org.example.classpai.service.HomeworkService;
+import org.example.classpai.service.MessageService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,11 +26,14 @@ public class HomeworkController {
 
     private final HomeworkService homeworkService;
     private final HomeworkFileMapper homeworkFileMapper;
+    private final MessageService messageService;
 
     public HomeworkController(HomeworkService homeworkService,
-                              HomeworkFileMapper homeworkFileMapper) {
+                              HomeworkFileMapper homeworkFileMapper,
+                              MessageService messageService) {
         this.homeworkService = homeworkService;
         this.homeworkFileMapper = homeworkFileMapper;
+        this.messageService = messageService;
     }
 
     /** 教师布置作业（接收文件上传） */
@@ -66,9 +70,15 @@ public class HomeworkController {
 
     /** 获取单个作业 */
     @GetMapping("/{hwId}")
-    public Result<Homework> getOne(@PathVariable Long hwId, HttpServletRequest request) {
+    public Result<Homework> getHomework(@PathVariable Long hwId, HttpServletRequest request) {
         User user = (User) request.getAttribute("currentUser");
         return homeworkService.getHomework(hwId, user);
+    }
+
+    @GetMapping("/{hwId}/detail")
+    public Result<StudentHomeworkVO> teacherDetail(@PathVariable Long hwId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return homeworkService.getTeacherHomeworkDetail(hwId, user);
     }
 
     /** 获取某个作业的文件列表 */
@@ -125,5 +135,38 @@ public class HomeworkController {
     public Result<?> submitPage(@PathVariable Long hwId, HttpServletRequest request) {
         User user = (User) request.getAttribute("currentUser");
         return homeworkService.getSubmitPageData(hwId, user);
+    }
+
+    /** 催交单个学生 */
+    @PostMapping("/{hwId}/urge/{studentId}")
+    public Result<?> urge(@PathVariable Long hwId,
+                          @PathVariable Long studentId,
+                          HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return messageService.urge(hwId, studentId, user);
+    }
+
+    /** 一键催交所有未提交学生 */
+    @PostMapping("/{hwId}/urge-all")
+    public Result<?> urgeAll(@PathVariable Long hwId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return messageService.urgeAll(hwId, user);
+    }
+
+    /** AI 一键批改所有未批改的提交 */
+    @PostMapping("/{hwId}/grade-ai-batch")
+    public Result<?> gradeAIBatch(@PathVariable Long hwId, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return homeworkService.gradeByAIBatch(hwId, user);
+    }
+
+    /** 教师修改作业时间 */
+    @PutMapping("/{hwId}/time")
+    public Result<?> updateTime(@PathVariable Long hwId,
+            @RequestParam(required = false) Long startTime,
+            @RequestParam(required = false) Long deadline,
+            HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return homeworkService.updateHomeworkTime(hwId, startTime, deadline, user);
     }
 }

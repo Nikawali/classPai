@@ -30,6 +30,8 @@
       </div>
     </div>
 
+    <!-- ========== 作业列表区域 ========== -->
+    <div v-if="!viewingDetail">
     <!-- ========== 操作栏 ========== -->
     <div class="hw-toolbar">
       <span class="hw-summary">共 {{ totalCount }} 份作业</span>
@@ -67,7 +69,7 @@
               </div>
             </td>
           </tr>
-          <tr v-for="hw in homeworkList" :key="hw.hwId" style="cursor:pointer" @click="viewDetail(hw)">
+          <tr v-for="hw in homeworkList" :key="hw.hwId" style="cursor:pointer" @click="detailHwId = hw.hwId; viewingDetail = true">
             <td><span class="hw-name">{{ hw.title }}</span></td>
             <td>{{ fmtShort(hw.startTime) }}</td>
             <td>{{ fmtShort(hw.deadline) }}</td>
@@ -79,7 +81,7 @@
             </td>
             <td @click.stop>
               <div class="action-btns">
-                <button class="act-btn" title="查看详情" @click="viewDetail(hw)"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                <button class="act-btn" title="查看详情" @click="detailHwId = hw.hwId; viewingDetail = true"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
                 <button class="act-btn" title="查看附件" @click="viewFiles(hw)"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
                 <button class="act-btn" title="批阅" @click="viewGrading(hw)"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
               </div>
@@ -94,6 +96,7 @@
         <span v-for="p in totalPages" :key="p" class="page-num" :class="{active:p===page}" @click="changePage(p)">{{ p }}</span>
         <button :disabled="page >= totalPages" @click="changePage(page+1)">下一页</button>
       </div>
+    </div>
     </div>
 
     <!-- ========== 创建作业弹窗 ========== -->
@@ -161,38 +164,14 @@
       </div>
     </Teleport>
 
-    <!-- ========== 作业详情弹窗 ========== -->
-    <Teleport to="body">
-      <div v-if="showDetail" class="cw-overlay" @click.self="showDetail=false">
-        <div class="cw-dialog cw-dialog-wide">
-          <div class="cw-dialog-header">
-            <h3>{{ detail?.title }}</h3>
-            <button class="cw-dialog-close" @click="showDetail=false">&times;</button>
-          </div>
-          <div class="cw-dialog-body">
-            <div class="cw-detail-meta">
-              <span>满分：{{ detail?.totalScore || 100 }}分</span>
-              <span>开始：{{ fmtShort(detail?.startTime) || '未设置' }}</span>
-              <span>截止：{{ fmtShort(detail?.deadline) || '未设置' }}</span>
-            </div>
-            <div class="cw-detail-section">
-              <h4>作业内容</h4>
-              <div class="cw-detail-content">{{ detail?.content || '暂无内容' }}</div>
-            </div>
-            <div class="cw-detail-section" v-if="fileList.length">
-              <h4>附件 ({{ fileList.length }})</h4>
-              <ul class="cw-file-list">
-                <li v-for="f in fileList" :key="f.fileId" class="cw-file-item">
-                  <span>{{ f.originalName }}</span>
-                  <span class="cw-file-size">{{ fmtSize(f.fileSize) }}</span>
-                </li>
-              </ul>
-            </div>
-            <p v-if="detailError" class="cw-error">{{ detailError }}</p>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <!-- ========== 教师作业详情（复用学生端组件） ========== -->
+    <StudentHomeworkDetail
+      v-if="viewingDetail"
+      :courseId="courseId"
+      :homeworkId="detailHwId"
+      role="teacher"
+      @back="viewingDetail = false"
+    />
 
     <!-- ========== 附件列表弹窗 ========== -->
     <Teleport to="body">
@@ -295,7 +274,8 @@
  */
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api/request.js'
-import { fmt, fmtShort, fmtSize } from '../utils/format.js'
+import { fmtShort, fmtSize } from '../utils/format.js'
+import StudentHomeworkDetail from './StudentHomeworkDetail.vue'
 
 const props = defineProps({
   courseId:  { type: [String,Number], required: true },
@@ -384,26 +364,12 @@ async function handleCreate() {
 }
 
 // ========== 作业详情 ==========
-const showDetail = ref(false)
-const detail = ref(null)
-const fileList = ref([])
-const detailError = ref('')
+const viewingDetail = ref(false)
+const detailHwId = ref(null)
 
-async function viewDetail(hw) {
-  showDetail.value = true
-  detail.value = hw
-  detailError.value = ''
-  fileList.value = []
-  try {
-    const [dRes, fRes] = await Promise.all([
-      api.getHomework(hw.hwId),
-      api.getHomeworkFiles(hw.hwId)
-    ])
-    detail.value = dRes.data || hw
-    fileList.value = Array.isArray(fRes.data) ? fRes.data : []
-  } catch (e) {
-    detailError.value = '加载详情失败: ' + e.message
-  }
+function viewDetail(hw) {
+  detailHwId.value = hw.hwId
+  viewingDetail.value = true
 }
 
 // ========== 附件列表 ==========

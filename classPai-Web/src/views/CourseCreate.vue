@@ -90,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import { api } from '../api/request.js'
 
 const emit = defineEmits(['back', 'created'])

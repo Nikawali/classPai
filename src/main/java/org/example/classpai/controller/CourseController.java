@@ -98,4 +98,12 @@ public class CourseController {
         User user = (User) request.getAttribute("currentUser");
         return courseService.getArchivedCourses(user);
     }
+
+    /** 教师修改课程成员角色 */
+    @PutMapping("/{courseId}/members/{userId}/role")
+    public Result<?> changeRole(@PathVariable Long courseId, @PathVariable Long userId,
+            @RequestParam String role, HttpServletRequest request) {
+        User user = (User) request.getAttribute("currentUser");
+        return courseService.changeMemberRole(courseId, userId, role, user);
+    }
 }

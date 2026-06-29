@@ -9,6 +9,8 @@ import org.example.classpai.entity.User;
 import org.example.classpai.mapper.UserMapper;
 import org.example.classpai.service.UserService;
 import org.example.classpai.utils.PasswordUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class UserServiceImpl implements UserService {
 
+    private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
+
     private final UserMapper userMapper;
     private final StringRedisTemplate redisTemplate;
 
@@ -30,22 +34,26 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Result<?> sendCode(String phone) {
+        if (phone == null || !phone.matches("^1\\d{10}$")) {
+            throw new BusinessException(400, "请输入正确的11位手机号");
+        }
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getPhone, phone);
         if (userMapper.selectCount(wrapper) > 0) {
             throw new BusinessException(400, "手机号已被注册");
         }
 
-        String code = redisTemplate.opsForValue().get("sms:register:" + phone);
+        String redisKey = "sms:register:" + phone;
+        String code = redisTemplate.opsForValue().get(redisKey);
         if (code != null) {
-            return Result.success(code);
+            return Result.success("验证码已发送（5分钟内有效）");
         }
 
         code = String.format("%06d", new Random().nextInt(1000000));
-        redisTemplate.opsForValue().set("sms:register:" + phone, code, 5, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set(redisKey, code, 5, TimeUnit.MINUTES);
 
-        System.out.println("验证码发送到 " + phone + ": " + code);
-        return Result.success(code);
+        log.info("验证码发送到 {}: {}", phone, code);
+        return Result.success("验证码已发送");
     }
 
     @Override
@@ -95,15 +103,14 @@ public class UserServiceImpl implements UserService {
         String redisKey = "sms:profile:" + phone;
         String code = redisTemplate.opsForValue().get(redisKey);
         if (code != null) {
-            return Result.success(code);
+            return Result.success("验证码已发送（5分钟内有效）");
         }
 
-        // 生成6位随机验证码，有效期5分钟
         code = String.format("%06d", new Random().nextInt(1000000));
         redisTemplate.opsForValue().set(redisKey, code, 5, TimeUnit.MINUTES);
 
-        System.out.println("【个人信息修改】验证码发送到 " + phone + ": " + code);
-        return Result.success(code);
+        log.info("【个人信息修改】验证码发送到 {}: {}", phone, code);
+        return Result.success("验证码已发送");
     }
 
     @Override

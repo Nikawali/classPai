@@ -194,7 +194,6 @@ async function loadData() {
   loading.value = true; error.value = ''
   try {
     const res = await api.getSubmitPageData(props.homeworkId)
-    if (res.code !== 200) { error.value = res.message || '加载失败'; return }
     data.value = res.data
   } catch (e) {
     error.value = e.message || '网络异常，请检查网络后重试'

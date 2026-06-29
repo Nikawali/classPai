@@ -5,7 +5,7 @@
       <Profile v-if="activeTab === 'profile'" @logout="$emit('logout')" />
       <Todo v-else-if="activeTab === 'todo'" />
       <Classroom v-else-if="activeTab === 'classroom'" />
-      <Messages v-else-if="activeTab === 'messages'" />
+      <Messages v-else-if="activeTab === 'messages'" @markRead="unreadMessageCount = 0" />
     </div>
 
     <!-- 底部 Dock 栏 -->
@@ -19,21 +19,24 @@
       >
         <span class="dock-icon">{{ tab.icon }}</span>
         <span class="dock-label">{{ tab.label }}</span>
+        <span v-if="tab.key === 'messages' && unreadMessageCount > 0" class="dock-badge">{{ unreadMessageCount > 99 ? '99+' : unreadMessageCount }}</span>
       </button>
     </nav>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import Profile from './Profile.vue'
 import Todo from './Todo.vue'
 import Classroom from './Classroom.vue'
 import Messages from './Messages.vue'
+import { api } from '../api/request.js'
 
 defineEmits(['logout'])
 
-const activeTab = ref('classroom')
+const activeTab = ref(sessionStorage.getItem('mainTab') || 'classroom')
+const unreadMessageCount = ref(0)
 
 const tabs = [
   { key: 'todo',      label: '待办', icon: '📋' },
@@ -41,6 +44,23 @@ const tabs = [
   { key: 'messages',  label: '私信', icon: '💬' },
   { key: 'profile',   label: '我的', icon: '👤' }
 ]
+
+async function fetchUnreadCount() {
+  try {
+    const res = await api.getUnreadMessageCount()
+    unreadMessageCount.value = res.data || 0
+  } catch (e) {
+    console.error('获取未读消息数失败:', e)
+  }
+}
+
+onMounted(fetchUnreadCount)
+
+// 每次切回主页（非私信tab）时刷新未读数
+watch(activeTab, (val) => {
+  sessionStorage.setItem('mainTab', val)
+  if (val !== 'messages') fetchUnreadCount()
+})
 </script>
 
 <style scoped>
@@ -78,6 +98,7 @@ const tabs = [
   cursor: pointer;
   color: #999;
   transition: color .15s;
+  position: relative;
 }
 
 .dock-item.active {
@@ -91,5 +112,24 @@ const tabs = [
 
 .dock-label {
   font-size: 11px;
+}
+
+.dock-badge {
+  position: absolute;
+  top: 2px;
+  right: 50%;
+  transform: translateX(22px);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #e74c3c;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 </style>

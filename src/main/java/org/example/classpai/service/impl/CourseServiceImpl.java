@@ -19,15 +19,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-public class CourseServiceImpl implements CourseService {
+public class CourseServiceImpl extends BaseCourseServiceImpl implements CourseService {
 
-    private final CourseMapper courseMapper;
-    private final UserCourseMapper userCourseMapper;
-
-    public CourseServiceImpl(CourseMapper courseMapper,
-            UserCourseMapper userCourseMapper) {
-        this.courseMapper = courseMapper;
-        this.userCourseMapper = userCourseMapper;
+    public CourseServiceImpl() {
     }
 
     /** 【用户首页】一次性获取用户所有课程数据（置顶课程 + 按学期分组） */
@@ -101,7 +95,7 @@ public class CourseServiceImpl implements CourseService {
     /** 【成员管理页】获取课程所有成员（教师+学生），每人带 userId、userName、角色 */
     @Override
     public Result<List<MemberDTO>> getCourseMembers(Long courseId, User user) {
-        checkMembership(courseId, user);
+        checkMembership(courseId, user.getUserId());
         List<MemberDTO> members = userCourseMapper.findMembersByCourseId(courseId);
         return Result.success(members);
     }
@@ -144,7 +138,7 @@ public class CourseServiceImpl implements CourseService {
             throw new BusinessException(404, "课程不存在");
         }
 
-        UserCourse uc = checkMembership(courseId, user);
+        UserCourse uc = checkMembership(courseId, user.getUserId());
         course.setUserRole(uc.getRole());
         course.setArchived(Boolean.TRUE.equals(uc.getArchived()));
 
@@ -212,7 +206,7 @@ public class CourseServiceImpl implements CourseService {
     @Override
     @Transactional
     public Result<?> quitCourse(Long courseId, User user) {
-        UserCourse uc = checkMembership(courseId, user);
+        UserCourse uc = checkMembership(courseId, user.getUserId());
         if (!"student".equals(uc.getRole())) {
             throw new BusinessException(403, "教师不可退课，请先转让课程");
         }
@@ -224,7 +218,7 @@ public class CourseServiceImpl implements CourseService {
     @Override
     @Transactional
     public Result<?> archiveCourse(Long courseId, User user) {
-        UserCourse uc = checkMembership(courseId, user);
+        UserCourse uc = checkMembership(courseId, user.getUserId());
         if (Boolean.TRUE.equals(uc.getArchived())) {
             return Result.success("课程已归档");
         }
@@ -243,7 +237,7 @@ public class CourseServiceImpl implements CourseService {
     @Override
     @Transactional
     public Result<?> unarchiveCourse(Long courseId, User user) {
-        UserCourse uc = checkMembership(courseId, user);
+        UserCourse uc = checkMembership(courseId, user.getUserId());
         if (!Boolean.TRUE.equals(uc.getArchived())) {
             return Result.success("课程未归档");
         }
@@ -265,16 +259,29 @@ public class CourseServiceImpl implements CourseService {
         return Result.success(loadCoursesWithMeta(ucList));
     }
 
-    /** 校验用户是否为课程成员，是则返回关联记录，否则抛异常 */
-    private UserCourse checkMembership(Long courseId, User user) {
-        UserCourse uc = userCourseMapper.selectOne(
+    /** 教师修改课程成员角色 */
+    @Override
+    @Transactional
+    public Result<?> changeMemberRole(Long courseId, Long targetUserId, String role, User currentUser) {
+        // 校验当前用户是教师
+        UserCourse myUc = checkMembership(courseId, currentUser.getUserId());
+        if (!"teacher".equals(myUc.getRole())) {
+            throw new BusinessException(403, "仅教师可修改成员角色");
+        }
+        // 校验目标用户是课程成员
+        UserCourse targetUc = userCourseMapper.selectOne(
                 new LambdaQueryWrapper<UserCourse>()
                         .eq(UserCourse::getCourseId, courseId)
-                        .eq(UserCourse::getUserId, user.getUserId()));
-        if (uc == null) {
-            throw new BusinessException(403, "非课程成员，无权查看");
+                        .eq(UserCourse::getUserId, targetUserId));
+        if (targetUc == null) {
+            throw new BusinessException(404, "目标用户非课程成员");
         }
-        return uc;
+        if (role.equals(targetUc.getRole())) {
+            return Result.success("角色未变更");
+        }
+        targetUc.setRole(role);
+        userCourseMapper.updateById(targetUc);
+        return Result.success("角色已更新为：" + ("teacher".equals(role) ? "教师" : "学生"));
     }
 
     /** 根据课程的 startDate/endDate/semester 构建分组键，如 "2025-2026第一学期" */

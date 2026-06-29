@@ -46,4 +46,7 @@ public class Course {
     /** 当前用户是否已归档该课程 */
     @TableField(exist = false)
     private Boolean archived;
+
+    /** 是否禁止学生讨论 */
+    private Boolean discussionLocked;
 }

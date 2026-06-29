@@ -19,6 +19,9 @@ async function request(url, options = {}) {
     ...options
   }
   const res = await fetch(BASE_URL + url, config)
+  if (!res.ok) {
+    throw new Error(`请求失败 (${res.status})`)
+  }
   const data = await res.json()
   if (data.code !== 200) {
     throw new Error(data.message || '请求失败')
@@ -33,6 +36,9 @@ async function authRequest(url, options = {}) {
     ...options
   }
   const res = await fetch(url, config)
+  if (!res.ok) {
+    throw new Error(`请求失败 (${res.status})`)
+  }
   const data = await res.json()
   if (data.code !== 200) {
     throw new Error(data.message || '请求失败')
@@ -98,6 +104,12 @@ export const api = {
   getCourseMembers(courseId) {
     return request(`/course/${courseId}/members`)
   },
+  /** 修改成员角色 */
+  changeMemberRole(courseId, userId, role) {
+    return request(`/course/${courseId}/members/${userId}/role?role=${role}`, {
+      method: 'PUT'
+    })
+  },
 
   // ========== 置顶 ==========
   togglePin(courseId) {
@@ -162,6 +174,51 @@ export const api = {
     return request(`/course/${courseId}/topics`)
   },
 
+  // ========== 资料 ==========
+  /** 列出资料（可指定 parentId，null=根目录） */
+  getMaterials(courseId, parentId = null) {
+    const params = parentId != null ? `?parentId=${parentId}` : ''
+    return request(`/material/course/${courseId}${params}`)
+  },
+  /** 创建文件夹 */
+  createMaterialFolder(courseId, name, parentId = null) {
+    const fd = new FormData()
+    fd.append('name', name)
+    if (parentId != null) fd.append('parentId', parentId)
+    return request(`/material/course/${courseId}/folder`, { method: 'POST', body: fd })
+  },
+  /** 上传附件 */
+  uploadMaterialFile(courseId, files, parentId = null) {
+    const fd = new FormData()
+    for (const f of files) fd.append('files', f)
+    if (parentId != null) fd.append('parentId', parentId)
+    return request(`/material/course/${courseId}/file`, { method: 'POST', body: fd })
+  },
+  /** 添加外链 */
+  addMaterialLink(courseId, name, url, parentId = null) {
+    const fd = new FormData()
+    fd.append('name', name)
+    fd.append('url', url)
+    if (parentId != null) fd.append('parentId', parentId)
+    return request(`/material/course/${courseId}/link`, { method: 'POST', body: fd })
+  },
+  /** 删除资料（包含文件夹级联删除） */
+  deleteMaterial(materialId) {
+    return request(`/material/${materialId}`, { method: 'DELETE' })
+  },
+  /** 移动资料 */
+  moveMaterial(materialId, targetParentId) {
+    const fd = new FormData()
+    if (targetParentId != null) fd.append('targetParentId', targetParentId)
+    return request(`/material/${materialId}/move`, { method: 'PUT', body: fd })
+  },
+  /** 重命名 */
+  renameMaterial(materialId, name) {
+    const fd = new FormData()
+    fd.append('name', name)
+    return request(`/material/${materialId}/rename`, { method: 'PUT', body: fd })
+  },
+
   // ========== 作业 ==========
   /** 获取课程作业列表 */
   getHomeworkList(courseId, page = 1, pageSize = 10) {
@@ -183,6 +240,10 @@ export const api = {
   getHomeworkStudentDetail(hwId) {
     return request(`/homework/${hwId}/student`)
   },
+  /** 教师端：获取作业详情（含文件，不含学生提交） */
+  getHomeworkTeacherDetail(hwId) {
+    return request(`/homework/${hwId}/detail`)
+  },
   /** 学生端：获取提交页数据 */
   getSubmitPageData(hwId) {
     return request(`/homework/${hwId}/submit-page`)
@@ -201,6 +262,25 @@ export const api = {
       body: JSON.stringify(body)
     })
   },
+  /** 教师催交单个学生 */
+  urgeHomework(hwId, studentId) {
+    return request(`/homework/${hwId}/urge/${studentId}`, { method: 'POST' })
+  },
+  /** 教师一键催交所有未提交学生 */
+  urgeAllHomework(hwId) {
+    return request(`/homework/${hwId}/urge-all`, { method: 'POST' })
+  },
+  /** 教师 AI 一键批改 */
+  gradeAIBatch(hwId) {
+    return request(`/homework/${hwId}/grade-ai-batch`, { method: 'POST' })
+  },
+  /** 教师修改作业时间 */
+  updateHomeworkTime(hwId, startTime, deadline) {
+    return request(`/homework/${hwId}/time?startTime=${startTime || ''}&deadline=${deadline || ''}`, {
+      method: 'PUT'
+    })
+  },
+
   /** 学生端：提交作业（支持文件上传） */
   submitHomework(hwId, content, files) {
     const formData = new FormData()
@@ -247,5 +327,51 @@ export const api = {
       },
       body: JSON.stringify(body)
     })
-  }
+  },
+
+  // ========== 私信 ==========
+  getMessages() {
+    return request('/message')
+  },
+  getUnreadMessageCount() {
+    return request('/message/unread-count')
+  },
+  markMessagesRead() {
+    return request('/message/read', { method: 'POST' })
+  },
+
+  // ========== 话题讨论 ==========
+  getTopics(courseId) {
+    return request(`/topic/course/${courseId}`)
+  },
+  createTopic(courseId, title, content) {
+    const fd = new FormData()
+    fd.append('title', title)
+    if (content) fd.append('content', content)
+    return request(`/topic/course/${courseId}`, { method: 'POST', body: fd })
+  },
+  updateTopic(topicId, title, content) {
+    const fd = new FormData()
+    if (title) fd.append('title', title)
+    if (content !== undefined) fd.append('content', content)
+    return request(`/topic/${topicId}`, { method: 'PUT', body: fd })
+  },
+  deleteTopic(topicId) {
+    return request(`/topic/${topicId}`, { method: 'DELETE' })
+  },
+  togglePinTopic(topicId) {
+    return request(`/topic/${topicId}/pin`, { method: 'PUT' })
+  },
+  replyTopic(topicId, content, isAnonymous) {
+    const fd = new FormData()
+    fd.append('content', content)
+    fd.append('isAnonymous', isAnonymous ? 'true' : 'false')
+    return request(`/topic/${topicId}/reply`, { method: 'POST', body: fd })
+  },
+  getReplies(topicId) {
+    return request(`/topic/${topicId}/replies`)
+  },
+  toggleDiscussion(courseId) {
+    return request(`/topic/course/${courseId}/toggle`, { method: 'PUT' })
+  },
 }

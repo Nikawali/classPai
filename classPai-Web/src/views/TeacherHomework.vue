@@ -5,6 +5,17 @@
     <div v-else-if="error" class="th-status th-error">{{ error }}</div>
 
     <template v-else>
+      <!-- ========== 作业详情 Tab ========== -->
+      <StudentHomeworkDetail
+        v-if="activeTab === 'detail'"
+        :courseId="courseId"
+        :homeworkId="hwId"
+        role="teacher"
+        @back="activeTab = 'students'"
+      />
+
+      <!-- ========== 学生作业 Tab ========== -->
+      <template v-if="activeTab === 'students'">
       <!-- ========== 顶部导航栏 ========== -->
       <div class="th-topbar">
         <button class="th-back" @click="$emit('back')">
@@ -13,8 +24,8 @@
           </svg>
         </button>
         <div class="th-tabs">
-          <button class="th-tab active">学生作业</button>
-          <button class="th-tab">作业详情</button>
+          <button class="th-tab" :class="{ active: activeTab === 'students' }" @click="activeTab = 'students'">学生作业</button>
+          <button class="th-tab" :class="{ active: activeTab === 'detail' }" @click="activeTab = 'detail'">作业详情</button>
         </div>
       </div>
 
@@ -25,12 +36,32 @@
 
       <!-- ========== 操作栏：截止时间 + 操作 + 搜索 ========== -->
       <div class="th-actions">
-        <div class="th-deadline">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
-            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
-            <polyline points="12,7 12,12 16,14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-          <span>截止 {{ fmtDeadline(homework.deadline) }}</span>
+        <div class="th-time-group">
+          <div class="th-time-tag start">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none">
+              <polyline points="5,12 10,17 19,8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <template v-if="editingStartTime">
+              <input type="datetime-local" class="th-time-input" v-model="editStartTimeValue"
+                @blur="saveStartTime" @keyup.enter="saveStartTime" />
+            </template>
+            <template v-else>
+              <span>开始 {{ fmtDeadline(homework.startTime) }}</span>
+            </template>
+          </div>
+          <div class="th-time-tag end">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+              <polyline points="12,7 12,12 16,14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <template v-if="editingDeadline">
+              <input type="datetime-local" class="th-time-input" v-model="editDeadlineValue"
+                @blur="saveDeadline" @keyup.enter="saveDeadline" />
+            </template>
+            <template v-else>
+              <span>截止 {{ fmtDeadline(homework.deadline) }}</span>
+            </template>
+          </div>
         </div>
         <div class="th-actions-right">
           <!-- 设置下拉 -->
@@ -43,7 +74,8 @@
               </svg>
             </button>
             <div v-if="showSettings" class="th-dropdown">
-              <button class="th-dropdown-item" @click="showSettings = false">修改截止时间</button>
+              <button v-if="hasNotStarted" class="th-dropdown-item" @click="startEditStartTime">修改开始时间</button>
+              <button class="th-dropdown-item" @click="startEditDeadline">修改截止时间</button>
               <button class="th-dropdown-item" @click="showSettings = false">编辑作业内容</button>
               <button class="th-dropdown-item danger" @click="showSettings = false">删除作业</button>
             </div>
@@ -135,14 +167,19 @@
 
           <!-- 操作列 -->
           <span class="th-col-action">
-            <template v-if="!s.submitted">
-              <button class="th-action-btn warn" @click="handleUrge(s)">催交</button>
-            </template>
-            <template v-else-if="s.score == null">
-              <button class="th-action-btn primary" @click="openGrade(s)">进入批阅</button>
+            <template v-if="hasNotStarted">
+              <span class="th-not-started-tip">未开始</span>
             </template>
             <template v-else>
-              <button class="th-action-btn ghost" @click="openGrade(s)">查看</button>
+              <template v-if="!s.submitted">
+                <button class="th-action-btn warn" @click="handleUrge(s)">催交</button>
+              </template>
+              <template v-else-if="s.score == null">
+                <button class="th-action-btn primary" @click="openGrade(s)">进入批阅</button>
+              </template>
+              <template v-else>
+                <button class="th-action-btn ghost" @click="openGrade(s)">查看</button>
+              </template>
             </template>
             <span v-if="s.files && s.files.length" class="th-file-badge">
               <svg viewBox="0 0 24 24" width="11" height="11"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="13 2 13 9 20 9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
@@ -157,21 +194,21 @@
       </div>
 
       <!-- ========== 底部操作栏 ========== -->
-      <div class="th-footer">
-        <button class="th-footer-btn">
+      <div v-if="!hasNotStarted" class="th-footer">
+        <button class="th-footer-btn" @click="handleAIGradeAll" :disabled="gradingAI">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
             <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" stroke-width="1.5"/>
             <path d="M2 17l10 5 10-5" stroke="currentColor" stroke-width="1.5"/>
             <path d="M2 12l10 5 10-5" stroke="currentColor" stroke-width="1.5"/>
           </svg>
-          AI 一键批改
+          {{ gradingAI ? '批改中...' : 'AI 一键批改' }}
         </button>
-        <button class="th-footer-btn warn">
+        <button class="th-footer-btn warn" @click="handleUrgeAll" :disabled="urgingAll">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
             <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             <path d="M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          一键催交
+          {{ urgingAll ? '发送中...' : '一键催交' }}
         </button>
       </div>
 
@@ -216,6 +253,7 @@
           </div>
         </div>
       </Teleport>
+      </template>
     </template>
   </div>
 </template>
@@ -224,11 +262,16 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api/request.js'
 import { fmtDeadline } from '../utils/format.js'
+import StudentHomeworkDetail from './StudentHomeworkDetail.vue'
 
 const props = defineProps({
+  courseId: { type: [Number, String], required: true },
   hwId: { type: [Number, String], required: true }
 })
-defineEmits(['back'])
+
+const emit = defineEmits(['back'])
+
+const activeTab = ref('students')
 
 const loading = ref(true)
 const error = ref('')
@@ -236,6 +279,68 @@ const homework = ref({})
 const students = ref([])
 const keyword = ref('')
 const showSettings = ref(false)
+const urgingAll = ref(false)
+const gradingAI = ref(false)
+
+// 作业是否尚未开始
+const hasNotStarted = computed(() => {
+  if (!homework.value.startTime) return false
+  return new Date(homework.value.startTime) > new Date()
+})
+
+// ========== 修改截止时间 ==========
+const editingDeadline = ref(false)
+const editDeadlineValue = ref('')
+
+function startEditDeadline() {
+  showSettings.value = false
+  setEditValue(homework.value.deadline, editDeadlineValue)
+  editingDeadline.value = true
+}
+
+async function saveDeadline() {
+  editingDeadline.value = false
+  if (!editDeadlineValue.value) return
+  const ts = Math.floor(new Date(editDeadlineValue.value).getTime() / 1000)
+  try {
+    await api.updateHomeworkTime(props.hwId, null, ts)
+    homework.value.deadline = new Date(ts * 1000).toISOString()
+  } catch (e) {
+    alert(e.message || '修改失败')
+  }
+}
+
+// ========== 修改开始时间 ==========
+const editingStartTime = ref(false)
+const editStartTimeValue = ref('')
+
+function startEditStartTime() {
+  showSettings.value = false
+  setEditValue(homework.value.startTime, editStartTimeValue)
+  editingStartTime.value = true
+}
+
+async function saveStartTime() {
+  editingStartTime.value = false
+  if (!editStartTimeValue.value) return
+  const ts = Math.floor(new Date(editStartTimeValue.value).getTime() / 1000)
+  try {
+    await api.updateHomeworkTime(props.hwId, ts, null)
+    homework.value.startTime = new Date(ts * 1000).toISOString()
+  } catch (e) {
+    alert(e.message || '修改失败')
+  }
+}
+
+function setEditValue(dateVal, refVal) {
+  if (dateVal) {
+    const d = new Date(dateVal)
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+    refVal.value = d.toISOString().slice(0, 16)
+  } else {
+    refVal.value = ''
+  }
+}
 
 // ========== 评分 ==========
 const showGrade = ref(false)
@@ -275,7 +380,44 @@ async function handleGrade() {
 }
 
 function handleUrge(s) {
-  alert('催交通知已发送给 ' + (s.userName || s.studentId))
+  if (!confirm('确定向 ' + (s.userName || s.studentId) + ' 发送催交通知？')) return
+  api.urgeHomework(props.hwId, s.studentId).then(() => {
+    alert('催交通知已发送')
+  }).catch(e => {
+    alert('发送失败：' + e.message)
+  })
+}
+
+async function handleUrgeAll() {
+  if (!confirm('确定向所有未提交学生发送催交通知？')) return
+  urgingAll.value = true
+  try {
+    const res = await api.urgeAllHomework(props.hwId)
+    alert(res.message || '催交已发送')
+  } catch (e) {
+    alert('发送失败：' + e.message)
+  } finally {
+    urgingAll.value = false
+  }
+}
+
+async function handleAIGradeAll() {
+  const ungraded = students.value.filter(s => s.submitted && s.score == null).length
+  if (ungraded === 0) {
+    alert('没有待批改的提交')
+    return
+  }
+  if (!confirm('确定对 ' + ungraded + ' 份未批改提交进行AI自动批改？')) return
+  gradingAI.value = true
+  try {
+    const res = await api.gradeAIBatch(props.hwId)
+    alert(res.data || res.message || '批改完成')
+    await loadData()
+  } catch (e) {
+    alert('批改失败：' + e.message)
+  } finally {
+    gradingAI.value = false
+  }
 }
 
 const filteredStudents = computed(() => {
@@ -374,11 +516,23 @@ onMounted(() => { loadData() })
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 20px; flex-wrap: wrap; gap: 10px;
 }
-.th-deadline {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 12px; color: #e74c3c;
-  background: #fef2f2; padding: 4px 10px; border-radius: 6px;
+.th-time-group { display: flex; align-items: center; gap: 8px; }
+.th-time-tag {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; padding: 4px 10px; border-radius: 6px;
 }
+.th-time-tag.start {
+  color: #059669; background: #ecfdf5;
+}
+.th-time-tag.end {
+  color: #e74c3c; background: #fef2f2;
+}
+.th-time-input {
+  width: 160px; padding: 2px 6px; font-size: 12px;
+  border: 1px solid #e74c3c; border-radius: 4px; outline: none;
+  background: #fff;
+}
+.th-time-input:focus { box-shadow: 0 0 0 2px rgba(231,76,60,.2); }
 .th-actions-right { display: flex; align-items: center; gap: 8px; }
 
 .th-dropdown-wrapper { position: relative; }
@@ -498,6 +652,12 @@ onMounted(() => { loadData() })
 .th-file-badge {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 11px; color: #3b82f6; margin-top: 4px; cursor: default;
+}
+
+.th-not-started-tip {
+  font-size: 11px;
+  color: #9ca3af;
+  font-style: italic;
 }
 
 .th-empty {

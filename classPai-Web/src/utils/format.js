@@ -44,3 +44,15 @@ export function fileIcon(name) {
   if (['doc', 'docx'].includes(ext)) return '\uD83D\uDCDD' // 📝
   return '\uD83D\uDCCE' // 📎
 }
+
+/** 获取当前用户ID（通过token调用后端接口） */
+export async function getCurrentUserId(api) {
+  try {
+    const token = sessionStorage.getItem('token')
+    if (!token) return null
+    const res = await api.getProfile(token)
+    return res.data?.userId || null
+  } catch {
+    return null
+  }
+}

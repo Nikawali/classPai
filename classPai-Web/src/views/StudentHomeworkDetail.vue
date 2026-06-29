@@ -17,7 +17,7 @@
     <div class="shd-card">
       <div class="shd-card-header">
         <h2 class="shd-title">{{ detail.title }}</h2>
-        <span class="shd-status" :class="'status-' + detail.submitStatus">{{ statusText }}</span>
+        <span v-if="role === 'student'" class="shd-status" :class="'status-' + detail.submitStatus">{{ statusText }}</span>
       </div>
       <div class="shd-meta">
         <span class="shd-meta-item">
@@ -62,8 +62,8 @@
       </div>
     </div>
 
-    <!-- ========== 历史提交记录区 ========== -->
-    <div class="shd-card">
+    <!-- ========== 历史提交记录区（仅学生） ========== -->
+    <div v-if="role === 'student'" class="shd-card">
       <div class="shd-card-header">
         <h3 class="shd-section-title">我的提交记录</h3>
         <button v-if="canSubmit" class="btn-submit-hw" @click="goSubmit">
@@ -134,7 +134,8 @@ import { fmt, fmtSize, fileIcon } from '../utils/format.js'
 const props = defineProps({
   courseId:  { type: [String, Number], required: true },
   homeworkId:{ type: [String, Number], required: true },
-  archived:  { type: Boolean, default: false }
+  archived:  { type: Boolean, default: false },
+  role:      { type: String, default: 'student' }  // 'student' | 'teacher'
 })
 
 const emit = defineEmits(['back', 'submit'])
@@ -168,11 +169,9 @@ async function loadDetail() {
   error.value = ''
   detail.value = null
   try {
-    const res = await api.getHomeworkStudentDetail(props.homeworkId)
-    if (res.code !== 200) {
-      error.value = res.message || '加载失败'
-      return
-    }
+    const res = props.role === 'teacher'
+      ? await api.getHomeworkTeacherDetail(props.homeworkId)
+      : await api.getHomeworkStudentDetail(props.homeworkId)
     detail.value = res.data
   } catch (e) {
     error.value = e.message || '网络异常，请检查网络后重试'

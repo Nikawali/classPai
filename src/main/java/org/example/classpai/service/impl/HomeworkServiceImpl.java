@@ -8,10 +8,13 @@ import org.example.classpai.common.Result;
 import org.example.classpai.common.exception.BusinessException;
 import org.example.classpai.dto.*;
 import org.example.classpai.entity.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.example.classpai.mapper.*;
 import org.example.classpai.service.HomeworkService;
 import org.example.classpai.vo.HomeworkListVO;
 import org.example.classpai.vo.StudentHomeworkVO;
+import org.example.classpai.util.FileTextExtractor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -20,6 +23,9 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
@@ -30,12 +36,15 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.UUID;
 
 @Service
-public class HomeworkServiceImpl implements HomeworkService {
+public class HomeworkServiceImpl extends BaseCourseServiceImpl implements HomeworkService {
 
+    private static final Logger log = LoggerFactory.getLogger(HomeworkServiceImpl.class);
     private static final String UPLOAD_BASE = System.getProperty("user.dir") + File.separator + "uploads";
 
     @Value("${deepseek.api.url}")
@@ -46,35 +55,32 @@ public class HomeworkServiceImpl implements HomeworkService {
 
     private final HomeworkMapper homeworkMapper;
     private final SubmissionMapper submissionMapper;
-    private final UserCourseMapper userCourseMapper;
     private final HomeworkFileMapper homeworkFileMapper;
     private final SubmitFileMapper submitFileMapper;
     private final RestTemplate restTemplate;
-    private final CourseMapper courseMapper;
+    private ExecutorService sharedExecutor;
 
     public HomeworkServiceImpl(HomeworkMapper homeworkMapper,
             SubmissionMapper submissionMapper,
-            UserCourseMapper userCourseMapper,
             HomeworkFileMapper homeworkFileMapper,
             SubmitFileMapper submitFileMapper,
-            RestTemplate restTemplate,
-            CourseMapper courseMapper) {
+            RestTemplate restTemplate) {
         this.homeworkMapper = homeworkMapper;
         this.submissionMapper = submissionMapper;
-        this.userCourseMapper = userCourseMapper;
         this.homeworkFileMapper = homeworkFileMapper;
         this.submitFileMapper = submitFileMapper;
         this.restTemplate = restTemplate;
-        this.courseMapper = courseMapper;
     }
 
-    private void checkTeacher(Long courseId, Long userId) {
-        LambdaQueryWrapper<UserCourse> w = new LambdaQueryWrapper<>();
-        w.eq(UserCourse::getCourseId, courseId)
-                .eq(UserCourse::getUserId, userId)
-                .eq(UserCourse::getRole, "teacher");
-        if (userCourseMapper.selectCount(w) == 0) {
-            throw new BusinessException(403, "无权操作");
+    @PostConstruct
+    private void initExecutor() {
+        sharedExecutor = Executors.newFixedThreadPool(8);
+    }
+
+    @PreDestroy
+    private void shutdownExecutor() {
+        if (sharedExecutor != null) {
+            sharedExecutor.shutdown();
         }
     }
 
@@ -162,7 +168,22 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Override
     public PageResult<HomeworkListVO> listHomework(Long courseId, User user, int page, int pageSize) {
         LambdaQueryWrapper<Homework> w = new LambdaQueryWrapper<>();
-        w.eq(Homework::getCourseId, courseId).orderByDesc(Homework::getCreateTime);
+        w.eq(Homework::getCourseId, courseId);
+        // 先查角色，学生只看已开始的作业
+        UserCourse uc = userCourseMapper.selectOne(
+                new LambdaQueryWrapper<UserCourse>()
+                        .eq(UserCourse::getCourseId, courseId)
+                        .eq(UserCourse::getUserId, user.getUserId()));
+        if (uc == null) {
+            throw new BusinessException(403, "非课程成员");
+        }
+        boolean isTeacher = "teacher".equalsIgnoreCase(uc.getRole());
+        if (!isTeacher) {
+            // 学生只看已开始的作业（未设置开始时间视为已开始）
+            w.and(w2 -> w2.isNull(Homework::getStartTime)
+                    .or().le(Homework::getStartTime, LocalDateTime.now()));
+        }
+        w.orderByDesc(Homework::getCreateTime);
         Page<Homework> p = homeworkMapper.selectPage(new Page<>(page, pageSize), w);
         List<Homework> records = p.getRecords();
         List<HomeworkListVO> voList = records.stream().map(hw -> {
@@ -174,14 +195,6 @@ public class HomeworkServiceImpl implements HomeworkService {
             return PageResult.of(p.getTotal(), voList, p.getCurrent(), p.getSize());
         }
         List<Long> hwIds = voList.stream().map(HomeworkListVO::getHwId).collect(Collectors.toList());
-        UserCourse uc = userCourseMapper.selectOne(
-                new LambdaQueryWrapper<UserCourse>()
-                        .eq(UserCourse::getCourseId, courseId)
-                        .eq(UserCourse::getUserId, user.getUserId()));
-        if (uc == null) {
-            throw new BusinessException(403, "非课程成员");
-        }
-        boolean isTeacher = "teacher".equalsIgnoreCase(uc.getRole());
         if (isTeacher) {
             long totalStudents = userCourseMapper.selectCount(
                     new LambdaQueryWrapper<UserCourse>()
@@ -309,35 +322,175 @@ public class HomeworkServiceImpl implements HomeworkService {
         return Result.success(hw);
     }
 
+
     @Override
-    public Result<?> gradeByAI(Long submitId, User user) {
-        Submission sub = submissionMapper.selectById(submitId);
-        if (sub == null)
-            throw new BusinessException(404, "提交记录不存在");
-        Homework hw = homeworkMapper.selectById(sub.getHwId());
+    @Transactional
+    public Result<?> gradeByAIBatch(Long hwId, User user) {
+        Homework hw = homeworkMapper.selectById(hwId);
+        if (hw == null)
+            throw new BusinessException(404, "作业不存在");
         checkTeacher(hw.getCourseId(), user.getUserId());
         checkNotArchived(hw.getCourseId(), user.getUserId());
-        JSONObject body = new JSONObject();
-        body.put("model", "deepseek-chat");
-        body.put("temperature", 0.2);
-        body.put("stream", false);
-        body.put("messages", buildHomeworkPrompt(hw.getContent(), sub.getSubmitContent(), hw.getTotalScore()));
-        JSONObject response = sendToAI(body);
-        JSONObject choice = response.getJSONArray("choices").getJSONObject(0);
-        String content = choice.getJSONObject("message").getString("content");
-        JSONObject result = JSONObject.parseObject(content);
-        sub.setScore(result.getInteger("score"));
-        sub.setComment(result.getString("comment"));
-        submissionMapper.updateById(sub);
-        return Result.success("评分成功");
+        // 获取所有已提交但未批改的提交
+        List<Submission> ungraded = submissionMapper.selectList(
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getHwId, hwId)
+                        .isNotNull(Submission::getSubmitId)
+                        .isNull(Submission::getScore)
+                        .orderByDesc(Submission::getSubmitId));
+        // 只保留每个学生最新的一份提交
+        ungraded = ungraded.stream()
+                .collect(Collectors.toMap(
+                        Submission::getStudentId,
+                        s -> s,
+                        (existing, replacement) -> existing))
+                .values().stream()
+                .collect(Collectors.toList());
+        if (ungraded.isEmpty())
+            return Result.success("没有待批改的提交");
+
+        String question = buildQuestionText(hw);
+
+        AtomicInteger graded = new AtomicInteger(0);
+        Semaphore aiSemaphore = new Semaphore(5); // 最多5个并发AI调用
+
+        List<CompletableFuture<Void>> futures = ungraded.stream()
+                .map(sub -> CompletableFuture.runAsync(() -> {
+                    try {
+                        // ① 提取文档文字（CPU密集，多线程并行）
+                        String answer = buildAnswerText(sub);
+                        // ② 调用AI评分（IO密集，信号量限制并发数）
+                        aiSemaphore.acquire();
+                        try {
+                            JSONObject body = new JSONObject();
+                            body.put("model", "deepseek-chat");
+                            body.put("temperature", 0);
+                            body.put("stream", false);
+                            body.put("messages", buildHomeworkPrompt(question, answer, hw.getTotalScore()));
+                            JSONObject response = sendToAI(body);
+                            JSONObject choice = response.getJSONArray("choices").getJSONObject(0);
+                            String content = choice.getJSONObject("message").getString("content");
+                            JSONObject result = JSONObject.parseObject(content);
+                            sub.setScore(result.getInteger("score"));
+                            sub.setComment(result.getString("comment"));
+                            graded.incrementAndGet();
+                        } finally {
+                            aiSemaphore.release();
+                        }
+                    } catch (Exception e) {
+                        log.error("AI批改失败 submitId={}", sub.getSubmitId(), e);
+                    }
+                }, sharedExecutor))
+                .collect(Collectors.toList());
+
+        // 等待所有任务完成
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        // 批量更新已评分的提交
+        List<Submission> gradedList = ungraded.stream()
+                .filter(s -> s.getScore() != null)
+                .collect(Collectors.toList());
+        if (!gradedList.isEmpty()) {
+            submissionMapper.updateById(gradedList);
+        }
+
+        return Result.success("批改完成：" + graded.get() + "/" + ungraded.size());
+    }
+
+    @Override
+    @Transactional
+    public Result<?> updateHomeworkTime(Long hwId, Long startTime, Long deadline, User user) {
+        Homework hw = homeworkMapper.selectById(hwId);
+        if (hw == null) throw new BusinessException(404, "作业不存在");
+        checkTeacher(hw.getCourseId(), user.getUserId());
+        // 开始时间：仅未开始时可以修改
+        if (startTime != null) {
+            if (hw.getStartTime() != null && !LocalDateTime.now().isBefore(hw.getStartTime())) {
+                throw new BusinessException(400, "作业已开始，无法修改开始时间");
+            }
+            hw.setStartTime(LocalDateTime.ofInstant(
+                    Instant.ofEpochSecond(startTime), ZoneId.systemDefault()));
+        }
+        // 截止时间：随时可改
+        if (deadline != null) {
+            hw.setDeadline(LocalDateTime.ofInstant(
+                    Instant.ofEpochSecond(deadline), ZoneId.systemDefault()));
+        }
+        homeworkMapper.updateById(hw);
+        return Result.success("时间修改成功");
+    }
+
+    // ========== 以下为私有/辅助方法 ==========
+    /** 拼接作业题目文字：正文 + PDF/Word附件提取的文字 */
+    private String buildQuestionText(Homework hw) {
+        StringBuilder sb = new StringBuilder();
+        if (hw.getContent() != null && !hw.getContent().isBlank()) {
+            sb.append(hw.getContent()).append("\n");
+        }
+        // 提取教师上传的PDF/Word附件文字
+        List<HomeworkFile> hwFiles = homeworkFileMapper.selectList(
+                new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hw.getHwId()));
+        for (HomeworkFile hf : hwFiles) {
+            String text = extractFileText(hf.getFilePath());
+            if (!text.isEmpty()) {
+                sb.append("\n【附件文字：").append(hf.getFileName()).append("】\n");
+                sb.append(text).append("\n");
+            }
+        }
+        return sb.toString().trim();
+    }
+
+    /** 拼接学生答案文字：提交正文 + PDF/Word附件提取的文字 */
+    private String buildAnswerText(Submission sub) {
+        StringBuilder sb = new StringBuilder();
+        if (sub.getSubmitContent() != null && !sub.getSubmitContent().isBlank()) {
+            sb.append(sub.getSubmitContent()).append("\n");
+        }
+        // 提取学生提交的PDF/Word附件文字
+        List<SubmitFile> files = submitFileMapper.selectList(
+                new LambdaQueryWrapper<SubmitFile>().eq(SubmitFile::getSubmitId, sub.getSubmitId()));
+        for (SubmitFile sf : files) {
+            String text = extractFileText(sf.getFilePath());
+            if (!text.isEmpty()) {
+                sb.append("\n【附件文字】\n").append(text).append("\n");
+            }
+        }
+        return sb.toString().trim();
+    }
+
+    private String extractFileText(String filePath) {
+        if (filePath == null) return "";
+        // 文件路径格式：/uploads/xxx/yyy.pdf
+        File file = new File(System.getProperty("user.dir") + File.separator + "uploads",
+                filePath.replace("/uploads/", "").replace("/", File.separator));
+        if (!file.exists()) return "";
+        try {
+            String text = FileTextExtractor.extract(file);
+            return text;
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private List<Map<String, String>> buildHomeworkPrompt(String question, String answer, Integer totalScore) {
-        String systemPrompt = "你是严谨的作业批改老师，请按照要求批改学生作业：\n" +
-                "1. 严格按照给定总分进行打分，分数为二位浮点数\n" +
-                "2. 评分依据：答案正确性、知识点准确性、内容完整性、逻辑条理\n" +
-                "3. 只输出JSON格式结果，不要多余开场白、不要多余解释\n" +
-                "固定返回格式：{\"score\": 实际得分, \"comment\": \"简短批改评语，说明扣分原因\"}";
+        String systemPrompt = "你是严谨的作业批改老师，请严格按照以下评分标准批改学生作业：\n" +
+                "\n" +
+                "【评分规则 - 请逐项评估再计算总分】\n" +
+                "1. 答案正确性（占40%）：答案与标准答案或题目要求是否一致，关键结论、数据、公式是否正确\n" +
+                "2. 知识点准确性（占25%）：涉及的概念、定理、术语是否使用正确，有无原理性错误\n" +
+                "3. 内容完整性（占20%）：是否回答了题目的所有要点，有无遗漏重要内容\n" +
+                "4. 逻辑与表达（占15%）：推理过程是否清晰，表达是否通顺，有无自相矛盾\n" +
+                "\n" +
+                "【扣分标准】\n" +
+                "- 完全正确、无错误 → 满分\n" +
+                "- 核心结论错误 → 扣除40%-60%分数\n" +
+                "- 缺少关键要点 → 每个要点扣10%-20%\n" +
+                "- 概念或术语错误 → 每处扣5%-10%\n" +
+                "- 逻辑混乱或答非所问 → 扣除20%-40%\n" +
+                "- 空白或完全无关 → 0分\n" +
+                "\n" +
+                "只输出JSON格式，不要任何额外文字：\n" +
+                "{\"score\": 实际得分, \"comment\": \"简要说明扣分原因和主要问题\"}";
         String userPrompt = String.format("【本次作业总分：%d分】\n【题目】：%s\n\n【学生作答】：\n%s",
                 totalScore, question, answer);
         List<Map<String, String>> messages = new ArrayList<>();
@@ -354,15 +507,6 @@ public class HomeworkServiceImpl implements HomeworkService {
         return JSONObject.parseObject(restTemplate.postForObject(apiUrl, request, String.class));
     }
 
-    private void checkMembership(Long courseId, Long userId) {
-        Long count = userCourseMapper.selectCount(
-                new LambdaQueryWrapper<UserCourse>()
-                        .eq(UserCourse::getCourseId, courseId)
-                        .eq(UserCourse::getUserId, userId));
-        if (count == 0)
-            throw new BusinessException(403, "非课程成员");
-    }
-
     private String calcSubmitStatus(Homework hw, List<Submission> submissions) {
         if (!submissions.isEmpty() && submissions.get(0).getScore() != null)
             return "graded";
@@ -376,22 +520,9 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Override
     public Result<StudentHomeworkVO> getStudentHomeworkDetail(Long hwId, User user) {
         Homework hw = homeworkMapper.selectById(hwId);
-        if (hw == null)
-            throw new BusinessException(404, "作业不存在");
+        if (hw == null) throw new BusinessException(404, "作业不存在");
         checkMembership(hw.getCourseId(), user.getUserId());
-        Course course = courseMapper.selectById(hw.getCourseId());
-        StudentHomeworkVO vo = new StudentHomeworkVO();
-        BeanUtils.copyProperties(hw, vo);
-        vo.setCourseName(course != null ? course.getCourseName() : "");
-        vo.setTotalScore(hw.getTotalScore() != null ? hw.getTotalScore() : 100);
-        vo.setFiles(homeworkFileMapper.selectList(
-                new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hwId)));
-        for (HomeworkFile f : vo.getFiles()) {
-            String name = f.getFilePath() != null ? f.getFilePath().substring(f.getFilePath().lastIndexOf("/") + 1)
-                    : "";
-            f.setOriginalName(name);
-            f.setFileName(name);
-        }
+        StudentHomeworkVO vo = buildBaseVO(hw);
         vo.setSubmissions(submissionMapper.selectList(
                 new LambdaQueryWrapper<Submission>()
                         .eq(Submission::getHwId, hwId)
@@ -405,24 +536,19 @@ public class HomeworkServiceImpl implements HomeworkService {
     }
 
     @Override
+    public Result<StudentHomeworkVO> getTeacherHomeworkDetail(Long hwId, User user) {
+        Homework hw = homeworkMapper.selectById(hwId);
+        if (hw == null) throw new BusinessException(404, "作业不存在");
+        checkTeacher(hw.getCourseId(), user.getUserId());
+        return Result.success(buildBaseVO(hw));
+    }
+
+    @Override
     public Result<StudentHomeworkVO> getSubmitPageData(Long hwId, User user) {
         Homework hw = homeworkMapper.selectById(hwId);
-        if (hw == null)
-            throw new BusinessException(404, "作业不存在");
+        if (hw == null) throw new BusinessException(404, "作业不存在");
         checkMembership(hw.getCourseId(), user.getUserId());
-        Course course = courseMapper.selectById(hw.getCourseId());
-        StudentHomeworkVO vo = new StudentHomeworkVO();
-        BeanUtils.copyProperties(hw, vo);
-        vo.setCourseName(course != null ? course.getCourseName() : "");
-        vo.setTotalScore(hw.getTotalScore() != null ? hw.getTotalScore() : 100);
-        vo.setFiles(homeworkFileMapper.selectList(
-                new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hwId)));
-        for (HomeworkFile f : vo.getFiles()) {
-            String name = f.getFilePath() != null ? f.getFilePath().substring(f.getFilePath().lastIndexOf("/") + 1)
-                    : "";
-            f.setOriginalName(name);
-            f.setFileName(name);
-        }
+        StudentHomeworkVO vo = buildBaseVO(hw);
         vo.setSubmissions(submissionMapper.selectList(
                 new LambdaQueryWrapper<Submission>()
                         .eq(Submission::getHwId, hwId)
@@ -431,5 +557,23 @@ public class HomeworkServiceImpl implements HomeworkService {
         vo.setSubmitStatus(calcSubmitStatus(hw, vo.getSubmissions()));
         vo.setSubmittedCount(vo.getSubmissions().size());
         return Result.success(vo);
+    }
+
+    /** 构建作业基础 VO，包含课程名、附件等公共字段 */
+    private StudentHomeworkVO buildBaseVO(Homework hw) {
+        Course course = courseMapper.selectById(hw.getCourseId());
+        StudentHomeworkVO vo = new StudentHomeworkVO();
+        BeanUtils.copyProperties(hw, vo);
+        vo.setCourseName(course != null ? course.getCourseName() : "");
+        vo.setTotalScore(hw.getTotalScore() != null ? hw.getTotalScore() : 100);
+        vo.setFiles(homeworkFileMapper.selectList(
+                new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hw.getHwId())));
+        for (HomeworkFile f : vo.getFiles()) {
+            String name = f.getFilePath() != null
+                    ? f.getFilePath().substring(f.getFilePath().lastIndexOf("/") + 1) : "";
+            f.setOriginalName(name);
+            f.setFileName(name);
+        }
+        return vo;
     }
 }

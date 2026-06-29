@@ -30,7 +30,7 @@ public class UserCourse {
     private Integer sortOrder;
 
     /** 是否已归档：0=在读，1=已归档 */
-    private Boolean archived;
+    private Boolean archived = false;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime joinTime;

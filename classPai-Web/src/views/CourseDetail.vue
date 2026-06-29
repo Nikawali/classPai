@@ -4,6 +4,7 @@
     <CourseMembers
       v-if="showMembers"
       :courseId="course.courseId"
+      :isTeacher="isTeacher"
       @back="backFromMembers"
     />
 
@@ -11,6 +12,7 @@
     <TeacherHomework
       v-else-if="showGrading"
       :hwId="gradingHwId"
+      :courseId="course.courseId"
       @back="backFromGrading"
     />
 
@@ -281,6 +283,24 @@
         </div>
       </div>
 
+      <!-- 话题 Tab -->
+      <div v-else-if="activeTab === 'topic'" class="topic-panel">
+        <CourseDiscussion
+          :courseId="course.courseId"
+          :isTeacher="isTeacher"
+          :discussionLocked="course.discussionLocked"
+          @discussion-toggled="loadDetail"
+        />
+      </div>
+
+      <!-- 资料 Tab -->
+      <div v-else-if="activeTab === 'material'" class="material-panel">
+        <CourseMaterial
+          :courseId="course.courseId"
+          :isTeacher="isTeacher"
+        />
+      </div>
+
       <!-- 其他 Tab 占位 -->
       <div v-else class="tab-placeholder">
         <svg class="tab-placeholder-icon" viewBox="0 0 100 100" fill="none">
@@ -311,8 +331,10 @@ import TeacherHomework from './TeacherHomework.vue'
 import CourseHomework from './CourseHomework.vue'
 import StudentHomeworkDetail from './StudentHomeworkDetail.vue'
 import StudentHomeworkSubmit from './StudentHomeworkSubmit.vue'
+import CourseDiscussion from './CourseDiscussion.vue'
+import CourseMaterial from './CourseMaterial.vue'
 import { coverColor } from '../utils/colors.js'
-import { fmtDeadline } from '../utils/format.js'
+import { fmtDeadline, fmtShort } from '../utils/format.js'
 
 const props = defineProps({
   courseId: { type: [Number, String], required: true }
@@ -322,7 +344,7 @@ defineEmits(['back'])
 const course = ref(null)
 const loading = ref(true)
 const error = ref('')
-const activeTab = ref('catalog')
+const activeTab = ref(sessionStorage.getItem('courseActiveTab') || 'catalog')
 
 // ============ 成员管理导航 ============
 const showMembers = ref(false)
@@ -488,10 +510,11 @@ function hwFileLabel(f) {
   return type ? `${decodeURIComponent(name)} (${type})` : decodeURIComponent(name)
 }
 
-// 切换到作业 Tab 时加载数据
+// 切换到作业 Tab 时加载数据，并持久化当前 tab
 watch(activeTab, (val) => {
+  sessionStorage.setItem('courseActiveTab', val)
   if (val === 'homework') loadHomeworks()
-})
+}, { immediate: true })
 
 const tabs = [
   { key: 'catalog',     label: '目录' },
@@ -849,6 +872,16 @@ onMounted(() => { loadDetail() })
 
 /* 作业面板 */
 .homework-panel {
+  padding: 16px;
+}
+
+/* 话题面板 */
+.topic-panel {
+  padding: 16px;
+}
+
+/* 资料面板 */
+.material-panel {
   padding: 16px;
 }
 .homework-header {

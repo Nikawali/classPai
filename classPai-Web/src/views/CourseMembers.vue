@@ -48,7 +48,8 @@
               <p class="member-name">{{ m.userName || '未知' }}</p>
               <p class="member-id">ID: {{ m.userId }}</p>
             </div>
-            <span class="member-role-tag teacher">教师</span>
+            <button v-if="isTeacher && m.userId !== currentUserId" class="demote-btn" @click="handleDemote(m)">降为学生</button>
+            <span v-else class="member-role-tag teacher">教师</span>
           </div>
         </div>
       </div>
@@ -71,7 +72,8 @@
               <p class="member-name">{{ m.userName || '未知' }}</p>
               <p class="member-id">ID: {{ m.userId }}</p>
             </div>
-            <span class="member-role-tag student">学生</span>
+            <button v-if="isTeacher" class="promote-btn" @click="handlePromote(m)">升为教师</button>
+            <span v-else class="member-role-tag student">学生</span>
           </div>
         </div>
       </div>
@@ -83,11 +85,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/request.js'
 import { coverColor } from '../utils/colors.js'
+import { getCurrentUserId } from '../utils/format.js'
 
 const props = defineProps({
-  courseId: { type: [Number, String], required: true }
+  courseId: { type: [Number, String], required: true },
+  isTeacher: { type: Boolean, default: false }
 })
 defineEmits(['back'])
+
+const currentUserId = ref(null)
 
 const members = ref([])
 const loading = ref(true)
@@ -125,7 +131,30 @@ async function loadMembers() {
   }
 }
 
-onMounted(() => { loadMembers() })
+async function handlePromote(m) {
+  if (!confirm(`确定将 ${m.userName || '未知用户'} 升为教师吗？`)) return
+  try {
+    await api.changeMemberRole(props.courseId, m.userId, 'teacher')
+    loadMembers()
+  } catch (e) {
+    alert(e.message || '操作失败')
+  }
+}
+
+async function handleDemote(m) {
+  if (!confirm(`确定将 ${m.userName || '未知用户'} 降为学生吗？`)) return
+  try {
+    await api.changeMemberRole(props.courseId, m.userId, 'student')
+    loadMembers()
+  } catch (e) {
+    alert(e.message || '操作失败')
+  }
+}
+
+onMounted(async () => {
+  currentUserId.value = await getCurrentUserId(api)
+  loadMembers()
+})
 </script>
 
 <style scoped>
@@ -290,6 +319,40 @@ onMounted(() => { loadMembers() })
 .member-role-tag.student {
   color: #059669;
   background: #ecfdf5;
+}
+
+.promote-btn {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid #2377E4;
+  background: #fff;
+  color: #2377E4;
+  cursor: pointer;
+  font-weight: 500;
+  flex-shrink: 0;
+  transition: all .15s;
+}
+.promote-btn:hover {
+  background: #2377E4;
+  color: #fff;
+}
+
+.demote-btn {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid #e67e22;
+  background: #fff;
+  color: #e67e22;
+  cursor: pointer;
+  font-weight: 500;
+  flex-shrink: 0;
+  transition: all .15s;
+}
+.demote-btn:hover {
+  background: #e67e22;
+  color: #fff;
 }
 
 .members-empty {
