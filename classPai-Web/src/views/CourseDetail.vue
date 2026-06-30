@@ -46,7 +46,7 @@
     <!-- ==================== 课程详情主页 ==================== -->
     <template v-else>
     <!-- ==================== 顶部 Banner ==================== -->
-    <div class="banner" :style="{ background: bannerColor }">
+    <div class="banner" :style="{ backgroundImage: bannerBackground }">
       <!-- 渐变红底 + 装饰叶片 -->
       <div class="banner-bg">
         <svg class="banner-leaf leaf-1" viewBox="0 0 120 160" fill="none">
@@ -333,7 +333,6 @@ import StudentHomeworkDetail from './StudentHomeworkDetail.vue'
 import StudentHomeworkSubmit from './StudentHomeworkSubmit.vue'
 import CourseDiscussion from './CourseDiscussion.vue'
 import CourseMaterial from './CourseMaterial.vue'
-import { coverColor } from '../utils/colors.js'
 import { fmtDeadline, fmtShort } from '../utils/format.js'
 
 const props = defineProps({
@@ -345,6 +344,8 @@ const course = ref(null)
 const loading = ref(true)
 const error = ref('')
 const activeTab = ref(sessionStorage.getItem('courseActiveTab') || 'catalog')
+const courseBGs = ['课程背景图1.png', '课程背景图2.jpg', '课程背景图3.jpg', '课程背景图4.jpg']
+const bannerBackground = `linear-gradient(rgba(20, 36, 64, .42), rgba(20, 36, 64, .42)), url('/courseBG/${encodeURIComponent(courseBGs[Math.floor(Math.random() * courseBGs.length)])}')`
 
 // ============ 成员管理导航 ============
 const showMembers = ref(false)
@@ -552,11 +553,6 @@ const currentTabLabel = computed(() => {
   return t ? t.label : ''
 })
 
-const bannerColor = computed(() => {
-  const id = course.value?.courseId
-  return id != null ? coverColor(id) : '#667eea'
-})
-
 const classText = computed(() => {
   const parts = []
   if (course.value?.semester) parts.push(course.value.semester)
@@ -633,6 +629,9 @@ onMounted(() => { loadDetail() })
   position: relative;
   padding: 16px 16px 20px;
   min-height: 180px;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
   overflow: hidden;
 }
 
