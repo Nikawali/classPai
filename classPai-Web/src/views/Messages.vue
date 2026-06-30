@@ -1,6 +1,11 @@
 <template>
   <div class="msg-page">
     <div class="msg-header">
+      <button class="msg-back-btn" title="返回" @click="$emit('back')">
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
       <h2>私信</h2>
     </div>
 
@@ -44,7 +49,7 @@ const error = ref('')
 const messages = ref([])
 const currentUserId = ref(null)
 
-const emit = defineEmits(['markRead'])
+const emit = defineEmits(['markRead', 'back'])
 
 function isSent(msg) {
   return msg.senderId === currentUserId.value
@@ -93,9 +98,28 @@ onMounted(async () => {
 }
 
 .msg-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 16px 20px;
   background: #fff;
   border-bottom: 1px solid #edf0f5;
+}
+.msg-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #555;
+  cursor: pointer;
+  transition: background .15s;
+}
+.msg-back-btn:hover {
+  background: #f0f0f0;
 }
 .msg-header h2 {
   font-size: 18px;
