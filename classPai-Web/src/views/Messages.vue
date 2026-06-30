@@ -1,7 +1,8 @@
 <template>
   <div class="msg-page">
     <div class="msg-header">
-      
+
+
       <h2>私信</h2>
     </div>
 
