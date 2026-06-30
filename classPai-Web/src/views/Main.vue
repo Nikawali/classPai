@@ -40,7 +40,7 @@
     <main class="content">
       <Profile v-if="activeTab === 'profile'" @logout="$emit('logout')" />
       <Classroom v-else-if="activeTab === 'classroom'" />
-      <Messages v-else-if="activeTab === 'messages'" @markRead="unreadMessageCount = 0" />
+      <Messages v-else-if="activeTab === 'messages'" @markRead="unreadMessageCount = 0" @back="activeTab = 'classroom'" />
     </main>
   </div>
 </template>
@@ -55,8 +55,7 @@ import { api } from '../api/request.js'
 defineEmits(['logout'])
 
 const validTabs = ['classroom', 'messages', 'profile']
-const savedTab = sessionStorage.getItem('mainTab')
-const activeTab = ref(validTabs.includes(savedTab) ? savedTab : 'classroom')
+const activeTab = ref('classroom')
 const unreadMessageCount = ref(0)
 
 const rightTabs = [

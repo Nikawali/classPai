@@ -17,6 +17,7 @@ public class SubmitFile {
 
     private Long fileSize;
 
+    @TableField(exist = false)
     private String fileName;
 
     private String fileType;

@@ -1,16 +1,16 @@
 <template>
-  <div class="create-overlay">
-    <!-- 顶部栏 -->
-    <div class="create-topbar">
-      <button class="back-btn" @click="$emit('back')">
-        <svg viewBox="0 0 24 24" width="22" height="22">
-          <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <h1 class="title">创建课程</h1>
-    </div>
-
-    <div class="create-body">
+  <div class="create-overlay" @click.self="$emit('back')">
+    <div class="create-card">
+      <!-- 标题栏 -->
+      <div class="create-header">
+        <h2 class="create-title">创建课程</h2>
+        <button class="create-close-btn" @click="$emit('back')">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
 
       <div v-if="errorMsg" class="error-banner">
         <span>{{ errorMsg }}</span>
@@ -40,7 +40,7 @@
             v-model="form.courseIntro"
             placeholder="简要介绍课程内容..."
             class="input textarea"
-            rows="4"
+            rows="3"
           ></textarea>
         </div>
 
@@ -95,7 +95,6 @@ import { api } from '../api/request.js'
 
 const emit = defineEmits(['back', 'created'])
 
-// 2000 到 2049，共 50 个学年（展示为 2000-2001 ~ 2049-2050）
 const yearOptions = Array.from({ length: 50 }, (_, i) => 2000 + i)
 
 const form = reactive({
@@ -162,50 +161,54 @@ async function handleSubmit() {
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: #f5f6fa;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* 顶部栏 */
-.create-topbar {
+  background: rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  background: #fff;
-  flex-shrink: 0;
-  border-bottom: 1px solid #eee;
+  justify-content: center;
+  padding: 20px;
 }
 
-.back-btn {
-  border: none;
-  background: none;
-  color: #333;
-  cursor: pointer;
-  padding: 6px;
-  display: flex;
-  align-items: center;
-  border-radius: 8px;
-  transition: background .15s;
-}
-.back-btn:hover { background: #f0f0f0; }
-
-.title {
-  font-size: 18px;
-  color: #1a1a1a;
-  font-weight: 600;
-}
-
-/* 滚动内容区 */
-.create-body {
-  flex: 1;
+.create-card {
+  width: 460px;
+  max-width: 100%;
+  max-height: 85vh;
   overflow-y: auto;
-  padding: 24px 20px 40px;
-  max-width: 480px;
-  width: 100%;
-  margin: 0 auto;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  padding: 24px 28px 28px;
+}
+
+/* 标题栏 */
+.create-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.create-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #222;
+}
+
+.create-close-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.create-close-btn:hover {
+  background: #f0f0f0;
+  color: #333;
 }
 
 .error-banner {
@@ -215,7 +218,7 @@ async function handleSubmit() {
   border-radius: 8px;
   color: #dc2626;
   font-size: 13px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   animation: slideDown .25s ease;
 }
 @keyframes slideDown {
@@ -226,7 +229,7 @@ async function handleSubmit() {
 .form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .field {
@@ -243,19 +246,18 @@ async function handleSubmit() {
 .input {
   width: 100%;
   height: 44px;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 10px;
+  border: 1.5px solid #e2e2e2;
+  border-radius: 8px;
   padding: 0 14px;
   font-size: 14px;
   outline: none;
   transition: border-color .2s, box-shadow .2s;
   box-sizing: border-box;
-  background: #fafafa;
+  background: #fff;
 }
 .input:focus {
-  border-color: #4a90d9;
-  box-shadow: 0 0 0 3px rgba(74,144,217,.12);
-  background: #fff;
+  border-color: #36B8F3;
+  box-shadow: 0 0 0 3px rgba(54, 184, 243, 0.1);
 }
 .input-error {
   border-color: #e74c3c;
@@ -283,10 +285,10 @@ async function handleSubmit() {
 
 .btn-submit {
   width: 100%;
-  height: 46px;
+  height: 48px;
   border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 8px;
+  background: rgb(54, 184, 243);
   color: #fff;
   font-size: 16px;
   font-weight: 600;
@@ -299,18 +301,16 @@ async function handleSubmit() {
 }
 .btn-submit:hover {
   opacity: .92;
-  transform: translateY(-1px);
 }
 .btn-submit:disabled {
-  opacity: .6;
+  opacity: .5;
   cursor: not-allowed;
-  transform: none;
 }
 
 .spinner {
   width: 22px;
   height: 22px;
-  border: 2.5px solid rgba(255,255,255,.3);
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin .6s linear infinite;

@@ -106,7 +106,7 @@ import { api } from '../api/request.js'
 const emit = defineEmits(['goRegister', 'loginSuccess'])
 
 // ========== 背景图片 ==========
-const backgroundImgUrl = ref('/教室背景图片.png')
+const backgroundImgUrl = ref('/登陆注册背景图.png')
 
 // ========== 表单 ==========
 const form = reactive({ userAccount: '', password: '' })

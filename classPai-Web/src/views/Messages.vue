@@ -1,11 +1,7 @@
 <template>
   <div class="msg-page">
     <div class="msg-header">
-      <button class="msg-back-btn" title="返回" @click="$emit('back')">
-        <svg viewBox="0 0 24 24" width="20" height="20">
-          <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
+      
       <h2>私信</h2>
     </div>
 
