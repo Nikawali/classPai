@@ -632,9 +632,9 @@ onMounted(() => {
 /* ==================== 页面容器 ==================== */
 .classroom-page {
   width: 100%;
-  max-width: 640px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 20px 16px;
+  padding: 24px;
   min-height: 100%;
   background: #f5f6fa;
   overflow: hidden;
