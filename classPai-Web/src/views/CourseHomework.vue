@@ -285,7 +285,7 @@ const props = defineProps({
 const emit = defineEmits(['back'])
 
 // ========== Tab 状态 ==========
-const courseTabs = ['作业', '资料', '公告', '话题', '成员']
+const courseTabs = ['作业']
 const activeCourseTab = ref('作业')
 
 // ========== 列表 ==========

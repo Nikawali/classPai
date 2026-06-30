@@ -93,7 +93,7 @@ watch(activeTab, (val) => {
 
 .top-nav {
   flex-shrink: 0;
-  height: 76px;
+  height: 70px;
   background: #fff;
   border-bottom: 1px solid #e9edf5;
   box-shadow: 0 1px 8px rgba(15, 23, 42, .04);
