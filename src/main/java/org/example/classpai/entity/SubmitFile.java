@@ -17,9 +17,11 @@ public class SubmitFile {
 
     private Long fileSize;
 
-    private String fileName;
-
     private String fileType;
+
+    /** 瞬态：文件名（从 filePath 提取） */
+    @TableField(exist = false)
+    private String fileName;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime uploadTime;
