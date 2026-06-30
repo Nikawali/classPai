@@ -5,9 +5,9 @@
         <div class="nav-left">
           <img class="brand-logo" src="/logo.png" alt="ClassPai" />
           <button
-              class="classroom-link"
-              :class="{ active: activeTab === 'classroom' }"
-              @click="activeTab = 'classroom'"
+            class="classroom-link"
+            :class="{ active: activeTab === 'classroom' }"
+            @click="activeTab = 'classroom'"
           >
             我的课堂
           </button>
@@ -15,13 +15,13 @@
 
         <div class="nav-actions">
           <button
-              v-for="tab in rightTabs"
-              :key="tab.key"
-              class="nav-icon-btn"
-              :class="{ active: activeTab === tab.key }"
-              :title="tab.label"
-              :aria-label="tab.label"
-              @click="activeTab = tab.key"
+            v-for="tab in rightTabs"
+            :key="tab.key"
+            class="nav-icon-btn"
+            :class="{ active: activeTab === tab.key }"
+            :title="tab.label"
+            :aria-label="tab.label"
+            @click="activeTab = tab.key"
           >
             <svg v-if="tab.key === 'messages'" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
               <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
