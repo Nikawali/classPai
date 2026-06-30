@@ -1,246 +1,244 @@
 <template>
   <div class="classroom-page">
     <CourseDetail
-      v-if="selectedCourseId"
-      :courseId="selectedCourseId"
-      @back="handleBackFromDetail"
+        v-if="selectedCourseId"
+        :courseId="selectedCourseId"
+        @back="handleBackFromDetail"
     />
     <template v-else>
-    <!-- ==================== 置顶课程区（拖动排序） ==================== -->
-    <div class="top-section">
-      <div class="top-header">
-        <h2 class="top-title">置顶课程</h2>
-        <div class="btn-action-wrapper">
-          <button class="btn-action" @click="showActionSheet = !showActionSheet">
-            <svg viewBox="0 0 24 24" width="16" height="16" class="btn-action-icon">
-              <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            加入/创建课程
-          </button>
-          <div v-if="showActionSheet" class="action-sheet">
-            <button class="action-sheet-item" @click="showJoinDialog = true; showActionSheet = false">
-              <svg viewBox="0 0 24 24" width="18" height="18">
-                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <!-- ==================== 置顶课程区（拖动排序） ==================== -->
+      <div class="top-section">
+        <div class="top-header">
+          <h2 class="top-title">置顶课程</h2>
+          <div class="btn-action-wrapper">
+            <button class="btn-action" @click="showActionSheet = !showActionSheet">
+              <svg viewBox="0 0 24 24" width="16" height="16" class="btn-action-icon">
+                <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               </svg>
-              加入课堂
+              加入/创建课程
             </button>
-            <button class="action-sheet-item" @click="showCreateDialog = true; showActionSheet = false">
-              <svg viewBox="0 0 24 24" width="18" height="18">
-                <rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
-                <line x1="9" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <line x1="12" y1="12" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <line x1="12" y1="9" x2="12" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-              创建课堂
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 横向滚动卡片（支持拖动排序） -->
-      <div
-        ref="scrollContainer"
-        class="top-cards-scroll"
-        @dragover.prevent
-        @drop.prevent="onDrop"
-        @scroll="onCardsScroll"
-      >
-        <div
-          v-for="(course, idx) in pinnedCourses"
-          :key="course.courseId"
-          class="top-card"
-          :class="{ 'dragging': dragIndex === idx, 'drag-over': dragOverIndex === idx }"
-          draggable="true"
-          @dragstart="onDragStart(idx, $event)"
-          @dragenter.prevent="onDragEnter(idx)"
-          @dragover.prevent
-          @dragend="onDragEnd"
-          @click="enterCourse(course)"
-        >
-          <span class="top-card-tag">{{ course.userRole === 'teacher' ? '教' : '学' }}</span>
-          <!-- 3 点菜单按钮 -->
-          <button class="top-card-menu-btn" title="更多" @click.stop="openCardMenu(course)">
-            <svg viewBox="0 0 24 24" width="14" height="14">
-              <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
-              <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-              <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
-            </svg>
-          </button>
-          <div class="top-card-cover" :style="{ background: coverColor(course.courseId) }">
-            <span class="top-card-cover-text">{{ course.courseName.charAt(0) }}</span>
-          </div>
-          <div class="top-card-body">
-            <span class="top-card-code">{{ course.courseCode }}</span>
-            <p class="top-card-name">{{ course.courseName }}</p>
-            <p class="top-card-intro">{{ course.courseIntro }}</p>
-          </div>
-        </div>
-
-        <div v-if="pinnedCourses.length === 0" class="top-empty">
-          <p>暂无置顶课程，点课程右侧菜单置顶</p>
-        </div>
-      </div>
-
-      <!-- 自定义滚动条 -->
-      <div
-        v-if="pinnedCourses.length > 0 && scrollRatio < 1"
-        ref="scrollbarTrack"
-        class="custom-scrollbar"
-        :class="{ active: isDraggingScrollbar }"
-        @mousedown.prevent="onTrackDown"
-        @touchstart.prevent="onTrackDown"
-      >
-        <div
-          class="custom-scrollbar-thumb"
-          :style="{ left: scrollLeftPercent + '%', width: scrollThumbWidth + '%' }"
-          @mousedown.stop.prevent="onThumbDown"
-          @touchstart.stop.prevent="onThumbDown"
-        ></div>
-      </div>
-    </div>
-
-    <!-- ==================== 切换栏 ==================== -->
-    <div class="tab-bar">
-      <div class="tab-tabs">
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'student' }"
-          @click="switchTab('student')"
-        >我学的</button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'teacher' }"
-          @click="switchTab('teacher')"
-        >我教的</button>
-      </div>
-      <div class="tab-actions">
-        <button class="tab-icon-btn" @click="showSearch = !showSearch">
-          <svg viewBox="0 0 24 24" width="18" height="18">
-            <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
-            <line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </button>
-        <button class="tab-icon-btn" @click="showMoreMenu = !showMoreMenu">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <circle cx="12" cy="5" r="2"/>
-            <circle cx="12" cy="12" r="2"/>
-            <circle cx="12" cy="19" r="2"/>
-          </svg>
-        </button>
-        <div v-if="showMoreMenu" class="more-menu-backdrop" @click="showMoreMenu = false"></div>
-        <div v-if="showMoreMenu" class="more-menu">
-          <button class="more-menu-item" @click="handleArchiveManage(), showMoreMenu = false">归档管理</button>
-          <button class="more-menu-item cancel" @click="showMoreMenu = false">取消</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 搜索栏 -->
-    <div v-if="showSearch" class="search-bar">
-      <svg viewBox="0 0 24 24" width="16" height="16" class="search-icon">
-        <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
-        <line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-      <input
-        v-model="searchKeyword"
-        type="text"
-        placeholder="搜索课程名称"
-        class="search-input"
-        @keyup.enter="handleSearch"
-      />
-    </div>
-
-    <!-- ==================== 学年学期分组列表 ==================== -->
-    <div v-if="groupedCourses.length === 0" class="course-empty">
-      <p>{{ activeTab === 'student' ? '暂无学习的课程' : '暂无教学的课程' }}</p>
-    </div>
-
-    <div v-else class="group-list">
-      <div
-        v-for="group in groupedCourses"
-        :key="group.groupName"
-        class="group-item"
-      >
-        <div class="group-header" @click="toggleGroup(group.groupName)">
-          <svg
-            class="group-arrow"
-            :class="{ expanded: expandedGroups.has(group.groupName) }"
-            viewBox="0 0 24 24" width="16" height="16"
-          >
-            <path d="M8 6l8 6-8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <span class="group-name">{{ group.groupName }}</span>
-          <span class="group-count">{{ group.courses.length }}门课程</span>
-        </div>
-
-        <transition name="group-slide">
-          <div v-show="expandedGroups.has(group.groupName)" class="group-courses">
-            <div
-              v-for="course in group.courses"
-              :key="course.courseId"
-              class="group-course-card"
-              @click="enterCourse(course)"
-            >
-              <span class="group-card-tag">{{ activeTab === 'teacher' ? '教' : '学' }}</span>
-              <div class="group-card-cover" :style="{ background: coverColor(course.courseId) }">
-                <span class="group-card-cover-text">{{ course.courseName.charAt(0) }}</span>
-              </div>
-              <div class="group-card-body">
-                <p class="group-card-name">{{ course.courseName }}</p>
-                <p class="group-card-intro">{{ course.courseIntro }}</p>
-                <p class="group-card-meta">{{ course.studentCount || 0 }} 名学生</p>
-              </div>
-              <button class="group-card-menu" title="更多" @click.stop="openCardMenu(course)">
-                <svg viewBox="0 0 24 24" width="14" height="14">
-                  <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
-                  <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-                  <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
+            <div v-if="showActionSheet" class="action-sheet">
+              <button class="action-sheet-item" @click="showJoinDialog = true; showActionSheet = false">
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 </svg>
+                加入课堂
+              </button>
+              <button class="action-sheet-item" @click="showCreateDialog = true; showActionSheet = false">
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+                  <line x1="9" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <line x1="12" y1="12" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <line x1="12" y1="9" x2="12" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                创建课堂
               </button>
             </div>
           </div>
-        </transition>
-      </div>
-    </div>
-
-    <!-- ==================== 加入课程弹窗 ==================== -->
-    <div v-if="showJoinDialog" class="dialog-overlay" @click.self="showJoinDialog = false">
-      <div class="dialog-card">
-        <h3 class="dialog-title">加入课程</h3>
-        <p class="dialog-desc">输入老师分享的课程邀请码</p>
-        <input v-model="joinCode" type="text" placeholder="请输入邀请码"
-          class="dialog-input" @keyup.enter="handleJoinCourse" />
-        <div class="dialog-actions">
-          <button class="dialog-btn-cancel" @click="showJoinDialog = false">取消</button>
-          <button class="dialog-btn-confirm" @click="handleJoinCourse" :disabled="!joinCode.trim()">加入</button>
         </div>
-        <p v-if="joinError" class="dialog-error">{{ joinError }}</p>
-      </div>
-    </div>
 
-    <!-- ==================== 创建课程全屏页 ==================== -->
-    <CourseCreate
-      v-if="showCreateDialog"
-      @back="showCreateDialog = false"
-      @created="onCourseCreated"
-    />
+        <!-- 横向滚动卡片（支持拖动排序） -->
+        <div
+            ref="scrollContainer"
+            class="top-cards-scroll"
+            @dragover.prevent
+            @drop.prevent="onDrop"
+            @scroll="onCardsScroll"
+        >
+          <div
+              v-for="(course, idx) in pinnedCourses"
+              :key="course.courseId"
+              class="top-card"
+              :class="{ 'dragging': dragIndex === idx, 'drag-over': dragOverIndex === idx }"
+              draggable="true"
+              @dragstart="onDragStart(idx, $event)"
+              @dragenter.prevent="onDragEnter(idx)"
+              @dragover.prevent
+              @dragend="onDragEnd"
+              @click="enterCourse(course)"
+          >
+            <span class="top-card-tag">{{ course.userRole === 'teacher' ? '教' : '学' }}</span>
+            <!-- 3 点菜单按钮 -->
+            <button class="top-card-menu-btn" title="更多" @click.stop="openCardMenu(course)">
+              <svg viewBox="0 0 24 24" width="14" height="14">
+                <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
+                <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
+              </svg>
+            </button>
+            <div class="top-card-cover" :style="{ backgroundImage: `url(${coverImage(course.courseId)})` }">
+            </div>
+            <div class="top-card-body">
+              <span class="top-card-code">{{ course.courseCode }}</span>
+              <p class="top-card-name">{{ course.courseName }}</p>
+              <p class="top-card-intro">{{ course.courseIntro }}</p>
+            </div>
+          </div>
 
-    <!-- ==================== 底部操作面板 ==================== -->
-    <div v-if="bottomSheet.course" class="sheet-overlay" @click.self="closeBottomSheet">
-      <div class="sheet-panel">
-        <div class="sheet-header">
-          <p class="sheet-course-name">{{ bottomSheet.course.courseName }}</p>
-          <p class="sheet-course-code">{{ bottomSheet.course.courseCode }}</p>
+          <div v-if="pinnedCourses.length === 0" class="top-empty">
+            <p>暂无置顶课程，点课程右侧菜单置顶</p>
+          </div>
         </div>
-        <div class="sheet-actions">
-          <button class="sheet-action-item" @click="handleSheetAction('quit')">退课</button>
-          <button class="sheet-action-item" @click="handleSheetAction('archive')">归档</button>
-          <button class="sheet-action-item" @click="handleSheetAction('pin')">{{ isSheetCoursePinned ? '取消置顶' : '置顶' }}</button>
+
+        <!-- 自定义滚动条 -->
+        <div
+            v-if="pinnedCourses.length > 0 && scrollRatio < 1"
+            ref="scrollbarTrack"
+            class="custom-scrollbar"
+            :class="{ active: isDraggingScrollbar }"
+            @mousedown.prevent="onTrackDown"
+            @touchstart.prevent="onTrackDown"
+        >
+          <div
+              class="custom-scrollbar-thumb"
+              :style="{ left: scrollLeftPercent + '%', width: scrollThumbWidth + '%' }"
+              @mousedown.stop.prevent="onThumbDown"
+              @touchstart.stop.prevent="onThumbDown"
+          ></div>
         </div>
-        <button class="sheet-cancel-btn" @click="closeBottomSheet">取消</button>
       </div>
-    </div>
+
+      <!-- ==================== 切换栏 ==================== -->
+      <div class="tab-bar">
+        <div class="tab-tabs">
+          <button
+              class="tab-btn"
+              :class="{ active: activeTab === 'student' }"
+              @click="switchTab('student')"
+          >我学的</button>
+          <button
+              class="tab-btn"
+              :class="{ active: activeTab === 'teacher' }"
+              @click="switchTab('teacher')"
+          >我教的</button>
+        </div>
+        <div class="tab-actions">
+          <button class="tab-icon-btn" @click="showSearch = !showSearch">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+              <line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button class="tab-icon-btn" @click="showMoreMenu = !showMoreMenu">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <circle cx="12" cy="5" r="2"/>
+              <circle cx="12" cy="12" r="2"/>
+              <circle cx="12" cy="19" r="2"/>
+            </svg>
+          </button>
+          <div v-if="showMoreMenu" class="more-menu-backdrop" @click="showMoreMenu = false"></div>
+          <div v-if="showMoreMenu" class="more-menu">
+            <button class="more-menu-item" @click="handleArchiveManage(), showMoreMenu = false">归档管理</button>
+            <button class="more-menu-item cancel" @click="showMoreMenu = false">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 搜索栏 -->
+      <div v-if="showSearch" class="search-bar">
+        <svg viewBox="0 0 24 24" width="16" height="16" class="search-icon">
+          <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+          <line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <input
+            v-model="searchKeyword"
+            type="text"
+            placeholder="搜索课程名称"
+            class="search-input"
+            @keyup.enter="handleSearch"
+        />
+      </div>
+
+      <!-- ==================== 学年学期分组列表 ==================== -->
+      <div v-if="groupedCourses.length === 0" class="course-empty">
+        <p>{{ activeTab === 'student' ? '暂无学习的课程' : '暂无教学的课程' }}</p>
+      </div>
+
+      <div v-else class="group-list">
+        <div
+            v-for="group in groupedCourses"
+            :key="group.groupName"
+            class="group-item"
+        >
+          <div class="group-header" @click="toggleGroup(group.groupName)">
+            <svg
+                class="group-arrow"
+                :class="{ expanded: expandedGroups.has(group.groupName) }"
+                viewBox="0 0 24 24" width="16" height="16"
+            >
+              <path d="M8 6l8 6-8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span class="group-name">{{ group.groupName }}</span>
+            <span class="group-count">{{ group.courses.length }}门课程</span>
+          </div>
+
+          <transition name="group-slide">
+            <div v-show="expandedGroups.has(group.groupName)" class="group-courses">
+              <div
+                  v-for="course in group.courses"
+                  :key="course.courseId"
+                  class="group-course-card"
+                  @click="enterCourse(course)"
+              >
+                <span class="group-card-tag">{{ activeTab === 'teacher' ? '教' : '学' }}</span>
+                <div class="group-card-cover" :style="{ backgroundImage: `url(${coverImage(course.courseId)})` }">
+                </div>
+                <div class="group-card-body">
+                  <p class="group-card-name">{{ course.courseName }}</p>
+                  <p class="group-card-intro">{{ course.courseIntro }}</p>
+                  <p class="group-card-meta">{{ course.studentCount || 0 }} 名学生</p>
+                </div>
+                <button class="group-card-menu" title="更多" @click.stop="openCardMenu(course)">
+                  <svg viewBox="0 0 24 24" width="14" height="14">
+                    <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
+                    <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                    <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </transition>
+        </div>
+      </div>
+
+      <!-- ==================== 加入课程弹窗 ==================== -->
+      <div v-if="showJoinDialog" class="dialog-overlay" @click.self="showJoinDialog = false">
+        <div class="dialog-card">
+          <h3 class="dialog-title">加入课程</h3>
+          <p class="dialog-desc">输入老师分享的课程邀请码</p>
+          <input v-model="joinCode" type="text" placeholder="请输入邀请码"
+                 class="dialog-input" @keyup.enter="handleJoinCourse" />
+          <div class="dialog-actions">
+            <button class="dialog-btn-cancel" @click="showJoinDialog = false">取消</button>
+            <button class="dialog-btn-confirm" @click="handleJoinCourse" :disabled="!joinCode.trim()">加入</button>
+          </div>
+          <p v-if="joinError" class="dialog-error">{{ joinError }}</p>
+        </div>
+      </div>
+
+      <!-- ==================== 创建课程全屏页 ==================== -->
+      <CourseCreate
+          v-if="showCreateDialog"
+          @back="showCreateDialog = false"
+          @created="onCourseCreated"
+      />
+
+      <!-- ==================== 底部操作面板 ==================== -->
+      <div v-if="bottomSheet.course" class="sheet-overlay" @click.self="closeBottomSheet">
+        <div class="sheet-panel">
+          <div class="sheet-header">
+            <p class="sheet-course-name">{{ bottomSheet.course.courseName }}</p>
+            <p class="sheet-course-code">{{ bottomSheet.course.courseCode }}</p>
+          </div>
+          <div class="sheet-actions">
+            <button class="sheet-action-item" @click="handleSheetAction('quit')">退课</button>
+            <button class="sheet-action-item" @click="handleSheetAction('archive')">归档</button>
+            <button class="sheet-action-item" @click="handleSheetAction('pin')">{{ isSheetCoursePinned ? '取消置顶' : '置顶' }}</button>
+          </div>
+          <button class="sheet-cancel-btn" @click="closeBottomSheet">取消</button>
+        </div>
+      </div>
     </template>
 
     <!-- ==================== 已归档课程弹窗 ==================== -->
@@ -270,7 +268,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { api } from '../api/request.js'
 import CourseCreate from './CourseCreate.vue'
 import CourseDetail from './CourseDetail.vue'
-import { coverColor } from '../utils/colors.js'
+import { coverColor, coverImage } from '../utils/colors.js'
 
 // ==================== 状态 ====================
 const activeTab = ref('student')
@@ -292,11 +290,11 @@ const expandedGroups = ref(new Set())
 const groupedCourses = computed(() => {
   const targetRole = activeTab.value === 'teacher' ? 'teacher' : 'student'
   return allGroupsData.value
-    .map(g => ({
-      groupName: g.groupName,
-      courses: (g.courses || []).filter(c => c.userRole === targetRole)
-    }))
-    .filter(g => g.courses.length > 0)
+      .map(g => ({
+        groupName: g.groupName,
+        courses: (g.courses || []).filter(c => c.userRole === targetRole)
+      }))
+      .filter(g => g.courses.length > 0)
 })
 
 // 拖动排序状态
@@ -735,8 +733,8 @@ onMounted(() => {
   position: relative;
   touch-action: none;
   transition: height .25s cubic-bezier(.4, 0, .2, 1),
-              border-radius .25s cubic-bezier(.4, 0, .2, 1),
-              background .25s cubic-bezier(.4, 0, .2, 1);
+  border-radius .25s cubic-bezier(.4, 0, .2, 1),
+  background .25s cubic-bezier(.4, 0, .2, 1);
 }
 
 .custom-scrollbar-thumb {
@@ -748,8 +746,8 @@ onMounted(() => {
   border-radius: 2px;
   min-width: 32px;
   transition: height .25s cubic-bezier(.4, 0, .2, 1),
-              background .25s cubic-bezier(.4, 0, .2, 1),
-              border-radius .25s cubic-bezier(.4, 0, .2, 1);
+  background .25s cubic-bezier(.4, 0, .2, 1),
+  border-radius .25s cubic-bezier(.4, 0, .2, 1);
   pointer-events: auto;
 }
 
@@ -906,15 +904,9 @@ onMounted(() => {
 .top-card-cover {
   width: 100%;
   height: 88px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.top-card-cover-text {
-  font-size: 32px;
-  font-weight: 700;
-  color: rgba(255,255,255,.7);
+  background-size: cover;
+  background-position: center;
+  background-color: #e0e0e0;
 }
 
 .top-card-body {
@@ -1115,17 +1107,11 @@ onMounted(() => {
   width: 44px;
   height: 44px;
   border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background-size: cover;
+  background-position: center;
+  background-color: #e0e0e0;
   flex-shrink: 0;
 }
-.group-card-cover-text {
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-}
-
 .group-card-body {
   flex: 1;
   min-width: 0;
