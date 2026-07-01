@@ -211,7 +211,7 @@ import { api } from '../api/request.js'
 const emit = defineEmits(['goLogin'])
 
 // ========== 背景图片 ==========
-const backgroundImgUrl = ref('/登陆注册背景图.png')
+const backgroundImgUrl = ref('/登录注册背景图.png')
 
 // ========== 表单数据 ==========
 const form = reactive({
