@@ -100,13 +100,7 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
         void save(String newName, String filePath, long fileSize, String fileType);
     }
 
-    /**
-     * 保存上传文件到磁盘并回调创建对应实体记录
-     * 
-     * @param files  上传文件数组
-     * @param subDir 子目录名，如 "homework"、"submit"
-     * @param saver  实体创建回调（接收 newName, filePath, fileSize, fileType）
-     */
+
     private void saveFiles(MultipartFile[] files, String subDir, FileEntitySaver saver) {
         if (files == null || files.length == 0)
             return;
@@ -344,7 +338,7 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
                         Submission::getStudentId,
                         s -> s,
                         (existing, replacement) -> existing))
-                .values().stream()
+                .values().stream() //获取值的value集合再转stream流
                 .collect(Collectors.toList());
         if (ungraded.isEmpty())
             return Result.success("没有待批改的提交");
@@ -361,10 +355,12 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
             }
         }
 
-        // 检查学生提交附件
+        // 检查学生提交附件，同时缓存文件列表避免后续重复查询
+        Map<Long, List<SubmitFile>> submitFilesMap = new HashMap<>();
         for (Submission sub : ungraded) {
             List<SubmitFile> files = submitFileMapper.selectList(
                     new LambdaQueryWrapper<SubmitFile>().eq(SubmitFile::getSubmitId, sub.getSubmitId()));
+            submitFilesMap.put(sub.getSubmitId(), files);
             for (SubmitFile sf : files) {
                 if (!FileTextExtractor.isSupported(sf.getFilePath())) {
                     String name = sf.getFilePath();
@@ -380,7 +376,7 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
                     + "。请确保题目与学生提交的附件为PDF/Word/纯文本格式。");
         }
 
-        String question = buildQuestionText(hw);
+        String question = buildQuestionText(hw, hwFiles);
 
         AtomicInteger graded = new AtomicInteger(0);
         Semaphore aiSemaphore = new Semaphore(5); // 最多5个并发AI调用
@@ -389,7 +385,7 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
                 .map(sub -> CompletableFuture.runAsync(() -> {
                     try {
                         // ① 提取文档文字（CPU密集，多线程并行）
-                        String answer = buildAnswerText(sub);
+                        String answer = buildAnswerText(sub, submitFilesMap.getOrDefault(sub.getSubmitId(), List.of()));
                         System.out.println(answer);
                         // ② 调用AI评分（IO密集，信号量限制并发数）
                         aiSemaphore.acquire();
@@ -452,16 +448,12 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
         return Result.success("时间修改成功");
     }
 
-    // ========== 以下为私有/辅助方法 ==========
-    /** 拼接作业题目文字：正文 + PDF/Word附件提取的文字 */
-    private String buildQuestionText(Homework hw) {
+    /** 拼接作业题目文字：正文 + 附件提取的文字 */
+    private String buildQuestionText(Homework hw, List<HomeworkFile> hwFiles) {
         StringBuilder sb = new StringBuilder();
         if (hw.getContent() != null && !hw.getContent().isBlank()) {
             sb.append(hw.getContent()).append("\n");
         }
-        // 提取教师上传的PDF/Word附件文字
-        List<HomeworkFile> hwFiles = homeworkFileMapper.selectList(
-                new LambdaQueryWrapper<HomeworkFile>().eq(HomeworkFile::getHwId, hw.getHwId()));
         List<String> unsupportedNames = new ArrayList<>();
         for (HomeworkFile hf : hwFiles) {
             String fileName = hf.getFileName();
@@ -482,15 +474,12 @@ public class HomeworkServiceImpl extends BaseCourseServiceImpl implements Homewo
         return sb.toString().trim();
     }
 
-    /** 拼接学生答案文字：提交正文 + PDF/Word附件提取的文字 */
-    private String buildAnswerText(Submission sub) {
+    /** 拼接学生答案文字：提交正文 + 附件提取的文字 */
+    private String buildAnswerText(Submission sub, List<SubmitFile> files) {
         StringBuilder sb = new StringBuilder();
         if (sub.getSubmitContent() != null && !sub.getSubmitContent().isBlank()) {
             sb.append(sub.getSubmitContent()).append("\n");
         }
-        // 提取学生提交的PDF/Word附件文字
-        List<SubmitFile> files = submitFileMapper.selectList(
-                new LambdaQueryWrapper<SubmitFile>().eq(SubmitFile::getSubmitId, sub.getSubmitId()));
         List<String> unsupportedNames = new ArrayList<>();
         for (SubmitFile sf : files) {
             String fileName = sf.getFilePath();
